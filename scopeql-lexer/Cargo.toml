@@ -33,8 +33,15 @@ command = []
 
 [dev-dependencies]
 comfy-table = { version = "7.2.1" }
+divan = { version = "0.1.21 " }
 enum-iterator = { version = "2.3.0" }
 insta = { version = "1.45.0" }
+logos = { version = "0.16.0" }
 
 [lints]
 workspace = true
+
+[[bench]]
+harness = false
+name = "lexer"
+path = "benches/lexer.rs"
