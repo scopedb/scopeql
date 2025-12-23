@@ -27,8 +27,9 @@ repository.workspace = true
 [dependencies]
 
 [dev-dependencies]
-comfy-table = "7"
-insta = "1"
+comfy-table = { version = "7.2.1" }
+enum-iterator = { version = "2.3.0" }
+insta = { version = "1.45.0" }
 
 [lints]
 workspace = true

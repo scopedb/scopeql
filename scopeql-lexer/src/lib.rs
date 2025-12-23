@@ -15,6 +15,7 @@
 use std::str::Chars;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(test, derive(enum_iterator::Sequence))]
 pub enum TokenKind {
     /// A special token representing the end of input.
     EOI,
@@ -204,6 +205,101 @@ pub enum TokenKind {
     WITH,
     WITHIN,
     XOR,
+}
+
+impl TokenKind {
+    pub fn is_literal(&self) -> bool {
+        use TokenKind::*;
+
+        matches!(
+            self,
+            LiteralFloat
+                | LiteralInteger
+                | LiteralString
+                | LiteralHexBinaryString
+                | LiteralHexInteger
+        )
+    }
+
+    pub fn is_symbol(&self) -> bool {
+        use TokenKind::*;
+
+        matches!(
+            self,
+            Eq | NotEq
+                | Lt
+                | Gt
+                | Lte
+                | Gte
+                | Plus
+                | Minus
+                | Multiply
+                | Divide
+                | Modulo
+                | Concat
+                | LParen
+                | RParen
+                | LBracket
+                | RBracket
+                | LBrace
+                | RBrace
+                | Comma
+                | Dot
+                | Colon
+                | DoubleColon
+                | SemiColon
+                | Dollar
+                | Arrow
+        )
+    }
+
+    pub fn is_keyword(&self) -> bool {
+        use TokenKind::*;
+
+        !self.is_literal()
+            && !self.is_symbol()
+            && !matches!(self, Ident | EOI | Whitespace | Comment)
+    }
+
+    pub fn is_reserved_keyword(&self) -> bool {
+        use TokenKind::*;
+
+        matches!(
+            self,
+            FROM | JOIN
+                | VALUES
+                | WHERE
+                | ORDER
+                | DISTINCT
+                | LIMIT
+                | SELECT
+                | AGGREGATE
+                | WINDOW
+                | WITHIN
+                | GROUP
+                | INSERT
+                | UNION
+                | SAMPLE
+                | NULL
+                | TRUE
+                | FALSE
+                | AS
+                | BY
+                | ON
+                | CASE
+                | WHEN
+                | THEN
+                | ELSE
+                | END
+                | CAST
+                | NOT
+                | IS
+                | IN
+                | BETWEEN
+                | AND
+                | OR
+        )
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -653,10 +749,6 @@ fn incomplete_operator(op: &str) -> Error {
 }
 
 fn match_keyword(text: &str) -> Option<TokenKind> {
-    if !text.is_ascii() {
-        return None;
-    }
-
     match text.to_ascii_uppercase().as_str() {
         "ADD" => Some(TokenKind::ADD),
         "AGGREGATE" => Some(TokenKind::AGGREGATE),
@@ -764,5 +856,20 @@ fn match_keyword(text: &str) -> Option<TokenKind> {
         "WITHIN" => Some(TokenKind::WITHIN),
         "XOR" => Some(TokenKind::XOR),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_keyword_round_trip() {
+        for keyword in enum_iterator::all::<TokenKind>() {
+            if keyword.is_keyword() {
+                let text = format!("{keyword:?}");
+                assert_eq!(match_keyword(&text), Some(keyword));
+            }
+        }
     }
 }
