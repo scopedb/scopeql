@@ -16,6 +16,7 @@ use comfy_table::Cell;
 use comfy_table::Table;
 use insta::assert_snapshot;
 use scopeql_lexer::Lexer;
+use scopeql_lexer::TokenKind;
 
 fn lex(sql: &str) -> String {
     let mut lexer = Lexer::new(sql);
@@ -26,7 +27,11 @@ fn lex(sql: &str) -> String {
             Ok(token) => {
                 let cell0 = Cell::new("OK");
                 let cell1 = Cell::new(format!("{token:?}"));
-                let cell2 = Cell::new(lexer.slice());
+                let cell2 = match token {
+                    TokenKind::Whitespace => Cell::new("<whitespace>"),
+                    TokenKind::Comment => Cell::new("<comment>"),
+                    _ => Cell::new(lexer.slice()),
+                };
                 let cell3 = Cell::new(format!("{:?}", lexer.span()));
                 table.add_row([cell0, cell1, cell2, cell3]);
             }
