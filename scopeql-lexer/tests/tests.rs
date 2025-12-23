@@ -32,14 +32,20 @@ fn lex(sql: &str) -> String {
                     TokenKind::Comment => Cell::new("<comment>"),
                     _ => Cell::new(tokenizer.slice()),
                 };
-                let cell3 = Cell::new(format!("{:?}", tokenizer.span()));
+                let cell3 = Cell::new(format!(
+                    "{:?}",
+                    (tokenizer.span().start, tokenizer.span().end)
+                ));
                 table.add_row([cell0, cell1, cell2, cell3]);
             }
             Err(err) => {
                 let cell0 = Cell::new("Err");
                 let cell1 = Cell::new(format!("{err:?}"));
                 let cell2 = Cell::new(tokenizer.slice());
-                let cell3 = Cell::new(format!("{:?}", tokenizer.span()));
+                let cell3 = Cell::new(format!(
+                    "{:?}",
+                    (tokenizer.span().start, tokenizer.span().end)
+                ));
                 table.add_row([cell0, cell1, cell2, cell3]);
             }
         }

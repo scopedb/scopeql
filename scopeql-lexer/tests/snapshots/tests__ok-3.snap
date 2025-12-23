@@ -49,4 +49,6 @@ from system.tables where database_name = 'scopedb' and schema_name != 'system'
 | OK     | Whitespace    | <whitespace>  | (69, 70) |
 |--------+---------------+---------------+----------|
 | OK     | LiteralString | 'system'      | (70, 78) |
+|--------+---------------+---------------+----------|
+| OK     | EOI           |               | (78, 78) |
 +--------+---------------+---------------+----------+
