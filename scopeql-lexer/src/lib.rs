@@ -763,8 +763,7 @@ fn incomplete_operator(op: &str) -> Error {
 
 fn match_keyword(text: &str) -> Option<TokenKind> {
     let text = text.to_ascii_uppercase();
-
-    let common = match text.as_str() {
+    match text.as_str() {
         "ADD" => Some(TokenKind::ADD),
         "AGGREGATE" => Some(TokenKind::AGGREGATE),
         "ALL" => Some(TokenKind::ALL),
@@ -870,20 +869,11 @@ fn match_keyword(text: &str) -> Option<TokenKind> {
         "WITH" => Some(TokenKind::WITH),
         "WITHIN" => Some(TokenKind::WITHIN),
         "XOR" => Some(TokenKind::XOR),
+
+        #[cfg(feature = "command")]
+        "CANCEL" => Some(TokenKind::CANCEL),
+
         _ => None,
-    };
-
-    #[cfg(feature = "command")]
-    {
-        common.or_else(|| match text.as_str() {
-            "CANCEL" => Some(TokenKind::CANCEL),
-            _ => None,
-        })
-    }
-
-    #[cfg(not(feature = "command"))]
-    {
-        common
     }
 }
 
