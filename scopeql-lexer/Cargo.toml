@@ -13,12 +13,10 @@
 # limitations under the License.
 
 [package]
-name = "scopeql"
-version = "0.3.1"
+name = "scopeql-lexer"
+version = "0.1.0"
 
-categories = ["database"]
-description = "A command-line interface for ScopeDB"
-keywords = ["scopedb"]
+rust-version = "1.85.0"
 
 edition.workspace = true
 homepage.workspace = true
@@ -26,7 +24,24 @@ license.workspace = true
 readme.workspace = true
 repository.workspace = true
 
+[features]
+default = []
+# recognizes command tokens
+command = []
+
 [dependencies]
+
+[dev-dependencies]
+comfy-table = { version = "7.2.1" }
+divan = { version = "0.1.21 " }
+enum-iterator = { version = "2.3.0" }
+insta = { version = "1.45.0" }
+logos = { version = "0.16.0" }
 
 [lints]
 workspace = true
+
+[[bench]]
+harness = false
+name = "lexer"
+path = "benches/lexer.rs"
