@@ -624,14 +624,11 @@ impl<'a> Iterator for Lexer<'a> {
                 State::CommentBlock => {
                     // inside the '/* ... */' comment block
                     while let Some(c) = self.consume() {
-                        match c {
-                            '*' => {
-                                if let Some('/') = self.lookahead() {
-                                    self.consume();
-                                    return Some(Ok(TokenKind::Comment));
-                                }
+                        if c == '*' {
+                            if let Some('/') = self.lookahead() {
+                                self.consume();
+                                return Some(Ok(TokenKind::Comment));
                             }
-                            _ => {}
                         }
                     }
                     // reached end of input before closing */
