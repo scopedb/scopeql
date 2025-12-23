@@ -95,7 +95,7 @@ pub enum TokenKind {
     SemiColon,
     /// Dollar sign (`$`).
     Dollar,
-    /// Arrow (`->`).
+    /// Arrow (`=>`).
     Arrow,
 
     // Case-insensitive keywords
@@ -233,6 +233,8 @@ enum State {
     QuotedString(char),
     CommentLine,
     CommentBlock,
+    HexString(char),
+    HexInteger,
 }
 
 impl<'a> Lexer<'a> {
@@ -279,6 +281,25 @@ impl Lexer<'_> {
             self.lookahead = Some(c);
             Some(c)
         }
+    }
+
+    fn consume_digit_or_underscore(&mut self) -> usize {
+        let mut count = 0;
+
+        while let Some(c) = self.lookahead() {
+            match c {
+                '0'..='9' => {
+                    count += 1;
+                    self.consume();
+                }
+                '_' => {
+                    self.consume();
+                }
+                _ => break,
+            }
+        }
+
+        count
     }
 }
 
@@ -403,48 +424,31 @@ impl<'a> Iterator for Lexer<'a> {
                         ';' => return Some(Ok(TokenKind::SemiColon)),
                         '$' => return Some(Ok(TokenKind::Dollar)),
                         '\'' | '"' | '`' => {
-                            // start of a quoted string
                             state = State::QuotedString(c);
                             continue;
                         }
 
                         // Identifiers and Keywords
-                        '_' => {
-                            while let Some(c) = self.lookahead() {
-                                if c.is_alphanumeric() || c == '_' {
-                                    self.consume();
-                                } else {
-                                    break;
-                                }
-                            }
-                            return Some(Ok(TokenKind::Ident));
-                        }
-                        c if c.is_alphabetic() => {
+                        //
+                        // Unquoted identifiers can have only ascii letters. If it contains other
+                        // Unicode characters, the auto normalization to lower-case may subtly ruin
+                        // the intent of the identifier, so we treat them as invalid tokens.
+                        '_' | 'a'..='z' | 'A'..='Z' => {
                             if matches!(c, 'x' | 'X') {
-                                if let Some('\'') = self.lookahead() {
-                                    // FIXME: consider move to State::HexString
-                                    // FIXME: perhaps support double quotes too?
-                                    // hex binary string: x'0123ABCDEF'
-                                    self.consume(); // consume the quote
-                                    loop {
-                                        match self.consume() {
-                                            None => return Some(Err(unclosed_hex_string())),
-                                            Some('\'') => {
-                                                return Some(Ok(TokenKind::LiteralHexBinaryString));
-                                            }
-                                            Some(c) => {
-                                                if !c.is_ascii_hexdigit() {
-                                                    // invalid character in hex string
-                                                    return Some(Err(invalid_hex_string(c)));
-                                                }
-                                            }
-                                        }
+                                match self.lookahead() {
+                                    Some('\'') | Some('"') => {
+                                        // consume the quote
+                                        let quote = self.consume().unwrap();
+                                        state = State::HexString(quote);
+                                        continue;
                                     }
+                                    // fallthrough as identifier
+                                    _ => {}
                                 }
                             }
 
                             while let Some(c) = self.lookahead() {
-                                if c.is_alphanumeric() || c == '_' {
+                                if matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_') {
                                     self.consume();
                                 } else {
                                     break;
@@ -460,72 +464,26 @@ impl<'a> Iterator for Lexer<'a> {
                         }
 
                         // Numbers
-                        c if c.is_ascii_digit() => {
+                        '0'..='9' => {
                             if c == '0' {
                                 if let Some(lookahead) = self.lookahead() {
                                     if matches!(lookahead, 'x' | 'X') {
-                                        // FIXME: consider move to State::HexInteger
-                                        // hexadecimal integer: 0x123ABCDEF
                                         self.consume(); // consume 'x' or 'X'
-
-                                        let mut has_digits = false;
-                                        while let Some(c) = self.lookahead() {
-                                            if c.is_ascii_hexdigit() {
-                                                has_digits = true;
-                                                self.consume();
-                                            } else {
-                                                break;
-                                            }
-                                        }
-
-                                        return if has_digits {
-                                            Some(Ok(TokenKind::LiteralHexInteger))
-                                        } else {
-                                            let slice = self.slice();
-                                            Some(Err(incomplete_hex_integer(slice)))
-                                        };
+                                        state = State::HexInteger;
+                                        continue;
                                     }
                                 }
                             }
 
-                            // FIXME: figure out proper float format
-                            //  https://docs.rs/lexical-parse-float/1.0.6/lexical_parse_float/index.html
-
                             // before a dot or exponent, it is an integer
-                            while let Some(c) = self.lookahead() {
-                                if c.is_ascii_digit() || c == '_' {
-                                    self.consume();
-                                } else {
-                                    break;
-                                }
-                            }
+                            self.consume_digit_or_underscore();
 
                             // try to parse a dot
                             let mut has_dot = false;
                             if let Some('.') = self.lookahead() {
                                 has_dot = true;
                                 self.consume(); // consume the dot
-
-                                // after the dot, there must be digits
-                                let mut has_digits = false;
-                                if let Some(c) = self.lookahead() {
-                                    if c.is_ascii_digit() {
-                                        has_digits = true;
-                                        self.consume();
-                                    }
-                                }
-                                if !has_digits {
-                                    let slice = self.slice();
-                                    return Some(Err(incomplete_float(slice)));
-                                }
-
-                                while let Some(c) = self.lookahead() {
-                                    if c.is_ascii_digit() || c == '_' {
-                                        self.consume();
-                                    } else {
-                                        break;
-                                    }
-                                }
+                                self.consume_digit_or_underscore();
                             }
 
                             // try to parse an exponent
@@ -542,25 +500,10 @@ impl<'a> Iterator for Lexer<'a> {
                                         }
                                     }
 
-                                    // after the exponent, there must be digits
-                                    let mut has_digits = false;
-                                    if let Some(c) = self.lookahead() {
-                                        if c.is_ascii_digit() {
-                                            has_digits = true;
-                                            self.consume();
-                                        }
-                                    }
-                                    if !has_digits {
+                                    // must have at least one digit as exponent
+                                    if self.consume_digit_or_underscore() == 0 {
                                         let slice = self.slice();
                                         return Some(Err(incomplete_float(slice)));
-                                    }
-
-                                    while let Some(c) = self.lookahead() {
-                                        if c.is_ascii_digit() || c == '_' {
-                                            self.consume();
-                                        } else {
-                                            break;
-                                        }
                                     }
                                 }
                             }
@@ -601,6 +544,44 @@ impl<'a> Iterator for Lexer<'a> {
                     }
                     // reached end of input before closing quote
                     return Some(Err(unclosed_quoted_string(quote)));
+                }
+                State::HexString(quote) => {
+                    // inside a hex binary string: x'0123ABCDEF'
+                    while let Some(c) = self.lookahead() {
+                        if c == quote {
+                            // end of hex string
+                            self.consume();
+                            return Some(Ok(TokenKind::LiteralHexBinaryString));
+                        } else if c.is_ascii_hexdigit() {
+                            // valid hex digit, continue
+                            self.consume();
+                            continue;
+                        } else {
+                            // invalid character in hex string
+                            return Some(Err(invalid_hex_string(c)));
+                        }
+                    }
+                    // reached end of input
+                    return Some(Err(unclosed_hex_string()));
+                }
+                State::HexInteger => {
+                    // inside a hexadecimal integer: 0x123ABCDEF
+                    let mut has_digits = false;
+                    while let Some(c) = self.lookahead() {
+                        if c.is_ascii_hexdigit() {
+                            // valid hex digit, continue
+                            has_digits = true;
+                            self.consume();
+                        } else {
+                            break;
+                        }
+                    }
+                    return if has_digits {
+                        Some(Ok(TokenKind::LiteralHexInteger))
+                    } else {
+                        let slice = self.slice();
+                        Some(Err(incomplete_hex_integer(slice)))
+                    };
                 }
                 State::CommentLine => {
                     // inside the '-- ...' comment
