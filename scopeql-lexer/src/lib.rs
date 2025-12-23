@@ -656,14 +656,10 @@ impl<'a> Iterator for Lexer<'a> {
                 }
                 State::HexString(quote) => {
                     // inside a hex binary string: x'0123ABCDEF'
-                    while let Some(c) = self.lookahead() {
+                    while let Some(c) = self.consume() {
                         if c == quote {
-                            // end of hex string
-                            self.consume();
                             return Some(Ok(TokenKind::LiteralHexBinaryString));
                         } else if c.is_ascii_hexdigit() {
-                            // valid hex digit, continue
-                            self.consume();
                             continue;
                         } else {
                             // invalid character in hex string
@@ -695,17 +691,8 @@ impl<'a> Iterator for Lexer<'a> {
                 State::CommentLine => {
                     // inside the '-- ...' comment
                     while let Some(c) = self.consume() {
-                        match c {
-                            '\n' => break,
-                            '\r' => {
-                                // similar to str::lines(): any carriage return (\r) not immediately
-                                // followed by a line feed (\n) does not split a line.
-                                if let Some('\n') = self.lookahead() {
-                                    self.consume();
-                                    break;
-                                }
-                            }
-                            _ => {}
+                        if matches!(c, '\n') {
+                            break;
                         }
                     }
                     // either reached end of line or end of input
@@ -715,8 +702,7 @@ impl<'a> Iterator for Lexer<'a> {
                     // inside the '/* ... */' comment block
                     while let Some(c) = self.consume() {
                         if c == '*' {
-                            if let Some('/') = self.lookahead() {
-                                self.consume();
+                            if let Some('/') = self.consume() {
                                 return Some(Ok(TokenKind::Comment));
                             }
                         }
