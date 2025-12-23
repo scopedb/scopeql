@@ -1,0 +1,8 @@
+---
+source: scopeql-lexer/tests/tests.rs
+expression: lex(sql)
+---
+[
+    "SELECT(\"select\")",
+    "Err(UnterminatedString)",
+]

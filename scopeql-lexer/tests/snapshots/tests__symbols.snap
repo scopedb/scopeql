@@ -1,0 +1,33 @@
+---
+source: scopeql-lexer/tests/tests.rs
+expression: lex(sql)
+---
+[
+    "Plus(\"+\")",
+    "Minus(\"-\")",
+    "Multiply(\"*\")",
+    "Divide(\"/\")",
+    "Modulo(\"%\")",
+    "Concat(\"||\")",
+    "LParen(\"(\")",
+    "RParen(\")\")",
+    "LBracket(\"[\")",
+    "RBracket(\"]\")",
+    "LBrace(\"{\")",
+    "RBrace(\"}\")",
+    "Comma(\",\")",
+    "Dot(\".\")",
+    "Colon(\":\")",
+    "DoubleColon(\"::\")",
+    "SemiColon(\";\")",
+    "Dollar(\"$\")",
+    "Arrow(\"->\")",
+    "Arrow(\"=>\")",
+    "Eq(\"=\")",
+    "NotEq(\"!=\")",
+    "NotEq(\"<>\")",
+    "Lt(\"<\")",
+    "Gt(\">\")",
+    "Lte(\"<=\")",
+    "Gte(\">=\")",
+]

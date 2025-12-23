@@ -1,0 +1,21 @@
+---
+source: scopeql-lexer/tests/tests.rs
+expression: lex(sql)
+---
+[
+    "FROM(\"from\")",
+    "Ident(\"t\")",
+    "SELECT(\"select\")",
+    "Ident(\"id\")",
+    "Minus(\"-\")",
+    "LiteralInteger(\"1\")",
+    "Comma(\",\")",
+    "Ident(\"var\")",
+    "LBracket(\"[\")",
+    "LiteralString(\"'message'\")",
+    "RBracket(\"]\")",
+    "DoubleColon(\"::\")",
+    "STRING(\"string\")",
+    "AS(\"as\")",
+    "Ident(\"message\")",
+]

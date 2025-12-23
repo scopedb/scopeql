@@ -1,0 +1,12 @@
+---
+source: scopeql-lexer/tests/tests.rs
+expression: lex(sql)
+---
+[
+    "LiteralInteger(\"1\")",
+    "Dot(\".\")",
+    "Dot(\".\")",
+    "LiteralInteger(\"2\")",
+    "LiteralInteger(\"3\")",
+    "Dot(\".\")",
+]

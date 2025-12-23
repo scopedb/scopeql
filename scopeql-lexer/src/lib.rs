@@ -12,6 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+pub mod lexer;
+
+pub use lexer::LexError;
+pub use lexer::Lexer;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TokenKind {
     /// A special token representing the end of input.
     EOI,

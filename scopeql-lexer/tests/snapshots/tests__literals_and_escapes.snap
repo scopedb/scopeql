@@ -1,0 +1,23 @@
+---
+source: scopeql-lexer/tests/tests.rs
+expression: lex(sql)
+---
+[
+    "VALUES(\"values\")",
+    "LParen(\"(\")",
+    "LiteralInteger(\"1\")",
+    "Comma(\",\")",
+    "LiteralString(\"'a''b'\")",
+    "Comma(\",\")",
+    "LiteralString(\"\\\"c\\\\\\\"d\\\"\")",
+    "Comma(\",\")",
+    "LiteralString(\"`e\\\\`f`\")",
+    "RParen(\")\")",
+    "Comma(\",\")",
+    "LParen(\"(\")",
+    "Ident(\"x\")",
+    "LiteralString(\"'FF'\")",
+    "Comma(\",\")",
+    "LiteralHexInteger(\"0xFF\")",
+    "RParen(\")\")",
+]

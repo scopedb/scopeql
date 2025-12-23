@@ -1,0 +1,19 @@
+---
+source: scopeql-lexer/tests/tests.rs
+expression: lex(sql)
+---
+[
+    "SELECT(\"select\")",
+    "LiteralInteger(\"1\")",
+    "Comma(\",\")",
+    "LiteralString(\"'a'\")",
+    "AS(\"as\")",
+    "Ident(\"a\")",
+    "SELECT(\"select\")",
+    "Ident(\"a\")",
+    "AS(\"as\")",
+    "Ident(\"b\")",
+    "Comma(\",\")",
+    "Dollar(\"$\")",
+    "LiteralInteger(\"0\")",
+]

@@ -1,0 +1,14 @@
+---
+source: scopeql-lexer/tests/tests.rs
+expression: lex(sql)
+---
+[
+    "SELECT(\"SeLeCt\")",
+    "Multiply(\"*\")",
+    "FROM(\"FrOm\")",
+    "Ident(\"T\")",
+    "WHERE(\"wHeRe\")",
+    "Ident(\"Id\")",
+    "Eq(\"=\")",
+    "LiteralInteger(\"1\")",
+]

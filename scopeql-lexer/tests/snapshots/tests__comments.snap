@@ -1,0 +1,12 @@
+---
+source: scopeql-lexer/tests/tests.rs
+expression: lex(sql)
+---
+[
+    "SELECT(\"select\")",
+    "LiteralInteger(\"1\")",
+    "SemiColon(\";\")",
+    "SELECT(\"select\")",
+    "LiteralInteger(\"2\")",
+    "SemiColon(\";\")",
+]

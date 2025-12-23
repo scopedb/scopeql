@@ -1,0 +1,18 @@
+---
+source: scopeql-lexer/tests/tests.rs
+expression: lex(sql)
+---
+[
+    "FROM(\"from\")",
+    "Ident(\"system\")",
+    "Dot(\".\")",
+    "TABLES(\"tables\")",
+    "WHERE(\"where\")",
+    "Ident(\"database_name\")",
+    "Eq(\"=\")",
+    "LiteralString(\"'scopedb'\")",
+    "AND(\"and\")",
+    "Ident(\"schema_name\")",
+    "NotEq(\"!=\")",
+    "LiteralString(\"'system'\")",
+]
