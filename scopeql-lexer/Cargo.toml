@@ -24,6 +24,11 @@ license.workspace = true
 readme.workspace = true
 repository.workspace = true
 
+[features]
+default = []
+# recognizes command tokens
+command = []
+
 [dependencies]
 
 [dev-dependencies]

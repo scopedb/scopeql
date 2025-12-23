@@ -205,6 +205,12 @@ pub enum TokenKind {
     WITH,
     WITHIN,
     XOR,
+
+    // Command-line only tokens
+    #[cfg(feature = "command")]
+    BackSlash,
+    #[cfg(feature = "command")]
+    CANCEL,
 }
 
 impl TokenKind {
@@ -223,6 +229,11 @@ impl TokenKind {
 
     pub fn is_symbol(&self) -> bool {
         use TokenKind::*;
+
+        #[cfg(feature = "command")]
+        if matches!(self, BackSlash) {
+            return true;
+        }
 
         matches!(
             self,
@@ -523,6 +534,8 @@ impl<'a> Iterator for Lexer<'a> {
                             state = State::QuotedString(c);
                             continue;
                         }
+                        #[cfg(feature = "command")]
+                        '\\' => return Some(Ok(TokenKind::BackSlash)),
 
                         // Identifiers and Keywords
                         //
@@ -749,7 +762,9 @@ fn incomplete_operator(op: &str) -> Error {
 }
 
 fn match_keyword(text: &str) -> Option<TokenKind> {
-    match text.to_ascii_uppercase().as_str() {
+    let text = text.to_ascii_uppercase();
+
+    let common = match text.as_str() {
         "ADD" => Some(TokenKind::ADD),
         "AGGREGATE" => Some(TokenKind::AGGREGATE),
         "ALL" => Some(TokenKind::ALL),
@@ -856,6 +871,19 @@ fn match_keyword(text: &str) -> Option<TokenKind> {
         "WITHIN" => Some(TokenKind::WITHIN),
         "XOR" => Some(TokenKind::XOR),
         _ => None,
+    };
+
+    #[cfg(feature = "command")]
+    {
+        common.or_else(|| match text.as_str() {
+            "CANCEL" => Some(TokenKind::CANCEL),
+            _ => None,
+        })
+    }
+
+    #[cfg(not(feature = "command"))]
+    {
+        common
     }
 }
 
