@@ -36,11 +36,5 @@ logos = { version = "0.16.0" }
 comfy-table = { version = "7.2.1" }
 insta = { version = "1.45.0" }
 
-
 [lints]
 workspace = true
-
-[[bench]]
-harness = false
-name = "lexer"
-path = "benches/lexer.rs"
