@@ -1,12 +1,28 @@
 ---
 source: scopeql-lexer/tests/tests.rs
-expression: lex(sql)
+expression: "lex(r#\"\n    -- This is a comment\n    select 1;\n    /* This is a\n       multi-line comment */\n    select 2;\n    \"#)"
 ---
-[
-    "SELECT(\"select\")",
-    "LiteralInteger(\"1\")",
-    "SemiColon(\";\")",
-    "SELECT(\"select\")",
-    "LiteralInteger(\"2\")",
-    "SemiColon(\";\")",
-]
+[INPUT]
+
+    -- This is a comment
+    select 1;
+    /* This is a
+       multi-line comment */
+    select 2;
+    
+[OUTPUT]
++--------+----------------+--------+--------+
+| Status | Token          | Slice  | Span   |
++===========================================+
+| OK     | SELECT         | select | 30..36 |
+|--------+----------------+--------+--------|
+| OK     | LiteralInteger | 1      | 37..38 |
+|--------+----------------+--------+--------|
+| OK     | SemiColon      | ;      | 38..39 |
+|--------+----------------+--------+--------|
+| OK     | SELECT         | select | 90..96 |
+|--------+----------------+--------+--------|
+| OK     | LiteralInteger | 2      | 97..98 |
+|--------+----------------+--------+--------|
+| OK     | SemiColon      | ;      | 98..99 |
++--------+----------------+--------+--------+

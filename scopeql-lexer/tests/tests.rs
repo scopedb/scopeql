@@ -12,92 +12,95 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use comfy_table::Cell;
+use comfy_table::Table;
+use insta::assert_snapshot;
 use scopeql_lexer::Lexer;
 
-fn lex(sql: &str) -> Vec<String> {
+fn lex(sql: &str) -> String {
     let mut lexer = Lexer::new(sql);
-    let mut tokens = Vec::new();
-    while let Some(res) = lexer.next() {
-        match res {
-            Ok(kind) => tokens.push(format!("{:?}({:?})", kind, lexer.slice())),
-            Err(e) => tokens.push(format!("Err({:?})", e)),
+    let mut table = Table::new();
+    table.set_header(["Status", "Token", "Slice", "Span"]);
+    while let Some(result) = lexer.next() {
+        match result {
+            Ok(token) => {
+                let cell0 = Cell::new("OK");
+                let cell1 = Cell::new(format!("{token:?}"));
+                let cell2 = Cell::new(lexer.slice());
+                let cell3 = Cell::new(format!("{:?}", lexer.span()));
+                table.add_row([cell0, cell1, cell2, cell3]);
+            }
+            Err(err) => {
+                let cell0 = Cell::new("Err");
+                let cell1 = Cell::new(format!("{err:?}"));
+                let cell2 = Cell::new(lexer.slice());
+                let cell3 = Cell::new(format!("{:?}", lexer.span()));
+                table.add_row([cell0, cell1, cell2, cell3]);
+            }
         }
     }
-    tokens
+
+    format!("[INPUT]\n{sql}\n[OUTPUT]\n{table}")
 }
 
 #[test]
-fn test_basic_statements() {
-    let sql = "create table public.t1 (id int, message string)";
-    insta::assert_debug_snapshot!(lex(sql));
-
-    let sql = "values (1, 'a'), (2, 'b'), (3, 'c') insert into public.t1";
-    insta::assert_debug_snapshot!(lex(sql));
-}
-
-#[test]
-fn test_complex_query() {
-    let sql = "from system.tables where database_name = 'scopedb' and schema_name != 'system'";
-    insta::assert_debug_snapshot!(lex(sql));
-
-    let sql = "select 1, 'a' as a select a as b, $0";
-    insta::assert_debug_snapshot!(lex(sql));
+fn test_ok() {
+    assert_snapshot!(lex("create table public.t1 (id int, message string)"));
+    assert_snapshot!(lex(
+        "values (1, 'a'), (2, 'b'), (3, 'c') insert into public.t1"
+    ));
+    assert_snapshot!(lex(
+        "from system.tables where database_name = 'scopedb' and schema_name != 'system'"
+    ));
+    assert_snapshot!(lex("select 1, 'a' as a select a as b, $0"));
 }
 
 #[test]
 fn test_comments() {
-    let sql = "
+    assert_snapshot!(lex(r#"
     -- This is a comment
     select 1;
-    /* This is a 
+    /* This is a
        multi-line comment */
     select 2;
-    ";
-    insta::assert_debug_snapshot!(lex(sql));
+    "#));
 }
 
 #[test]
 fn test_literals_and_escapes() {
-    let sql = r#"values (1, 'a''b', "c\"d", `e\`f`), (x'FF', 0xFF)"#;
-    insta::assert_debug_snapshot!(lex(sql));
+    assert_snapshot!(lex(r#"values (1, 'a''b', "c\"d", `e\`f`), (x'FF', 0xFF)"#));
 }
 
 #[test]
 fn test_numbers() {
-    let sql = "values (123, 123.456, 1e10, 1.2e-3, 0x1A, 0)";
-    insta::assert_debug_snapshot!(lex(sql));
-
+    assert_snapshot!(lex("values (123, 123.456, 1e10, 1.2e-3, 0x1A, 0)"));
     // Test dot ambiguity
-    let sql = "1. .2 3."; // 1. is Int(1) Dot; .2 is Dot Int(2); 3. is Int(3) Dot
-    insta::assert_debug_snapshot!(lex(sql));
+    // 1. is Int(1) Dot; .2 is Dot Int(2); 3. is Int(3) Dot
+    assert_snapshot!(lex("1. .2 3."));
 }
 
 #[test]
 fn test_symbols() {
-    let sql = "+ - * / % || ( ) [ ] { } , . : :: ; $ -> => = != <> < > <= >=";
-    insta::assert_debug_snapshot!(lex(sql));
+    assert_snapshot!(lex(
+        "+ - * / % || ( ) [ ] { } , . : :: ; $ -> => = != <> < > <= >="
+    ));
 }
 
 #[test]
 fn test_keywords_case_insensitive() {
-    let sql = "SeLeCt * FrOm T wHeRe Id = 1";
-    insta::assert_debug_snapshot!(lex(sql));
+    assert_snapshot!(lex("SeLeCt * FrOm T wHeRe Id = 1"));
 }
 
 #[test]
 fn test_errors() {
-    let sql = "select 'unterminated string";
-    insta::assert_debug_snapshot!(lex(sql));
-
-    let sql = "select /* unterminated comment";
-    insta::assert_debug_snapshot!(lex(sql));
-
-    let sql = "select 0xG"; // Invalid hex
-    insta::assert_debug_snapshot!(lex(sql));
+    assert_snapshot!(lex("select 'unterminated string"));
+    assert_snapshot!(lex("select /* unterminated comment"));
+    assert_snapshot!(lex("select 0xG")); // invalid hex
 }
 
 #[test]
 fn test_struct_access() {
-    let sql = "from t select id - 1, var['message']::string as message";
-    insta::assert_debug_snapshot!(lex(sql));
+    assert_snapshot!(lex(
+        "from t select id - 1, var['message']::string as message"
+    ));
 }

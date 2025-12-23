@@ -1,8 +1,14 @@
 ---
 source: scopeql-lexer/tests/tests.rs
-expression: lex(sql)
+expression: "lex(\"select /* unterminated comment\")"
 ---
-[
-    "SELECT(\"select\")",
-    "Err(UnterminatedBlockComment)",
-]
+[INPUT]
+select /* unterminated comment
+[OUTPUT]
++--------+--------------------------+-------------------------+-------+
+| Status | Token                    | Slice                   | Span  |
++=====================================================================+
+| OK     | SELECT                   | select                  | 0..6  |
+|--------+--------------------------+-------------------------+-------|
+| Err    | UnterminatedBlockComment | /* unterminated comment | 7..30 |
++--------+--------------------------+-------------------------+-------+

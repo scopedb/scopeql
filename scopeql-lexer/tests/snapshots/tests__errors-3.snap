@@ -1,9 +1,16 @@
 ---
 source: scopeql-lexer/tests/tests.rs
-expression: lex(sql)
+expression: "lex(\"select 0xG\")"
 ---
-[
-    "SELECT(\"select\")",
-    "Err(InvalidHexInteger)",
-    "Ident(\"G\")",
-]
+[INPUT]
+select 0xG
+[OUTPUT]
++--------+-------------------+--------+-------+
+| Status | Token             | Slice  | Span  |
++=============================================+
+| OK     | SELECT            | select | 0..6  |
+|--------+-------------------+--------+-------|
+| Err    | InvalidHexInteger | 0x     | 7..9  |
+|--------+-------------------+--------+-------|
+| OK     | Ident             | G      | 9..10 |
++--------+-------------------+--------+-------+

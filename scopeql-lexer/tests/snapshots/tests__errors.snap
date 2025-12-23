@@ -1,8 +1,14 @@
 ---
 source: scopeql-lexer/tests/tests.rs
-expression: lex(sql)
+expression: "lex(\"select 'unterminated string\")"
 ---
-[
-    "SELECT(\"select\")",
-    "Err(UnterminatedString)",
-]
+[INPUT]
+select 'unterminated string
+[OUTPUT]
++--------+--------------------+----------------------+-------+
+| Status | Token              | Slice                | Span  |
++============================================================+
+| OK     | SELECT             | select               | 0..6  |
+|--------+--------------------+----------------------+-------|
+| Err    | UnterminatedString | 'unterminated string | 7..27 |
++--------+--------------------+----------------------+-------+
