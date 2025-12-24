@@ -15,8 +15,8 @@
 use comfy_table::Cell;
 use comfy_table::Table;
 use insta::assert_snapshot;
-use scopeql_lexer::TokenKind;
-use scopeql_lexer::Tokenizer;
+use scopeql_parser::TokenKind;
+use scopeql_parser::Tokenizer;
 
 fn lex(sql: &str) -> String {
     let mut tokenizer = Tokenizer::new(sql);
