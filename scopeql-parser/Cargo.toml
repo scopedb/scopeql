@@ -13,15 +13,17 @@
 # limitations under the License.
 
 [package]
-name = "scopeql-lexer"
+name = "scopeql-parser"
 version = "0.1.0"
 
-rust-version = "1.85.0"
+rust-version = "1.90.0"
+
+description = "A parser for ScopeQL queries and commands."
+readme = "README.md"
 
 edition.workspace = true
 homepage.workspace = true
 license.workspace = true
-readme.workspace = true
 repository.workspace = true
 
 [features]
