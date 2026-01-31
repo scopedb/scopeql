@@ -1,4 +1,4 @@
-// Copyright 2025 ScopeDB, Inc.
+// Copyright 2024 ScopeDB, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,19 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod config;
-mod global;
-mod pretty;
+use std::sync::LazyLock;
 
-fn main() {}
+use tokio::runtime::Builder;
+use tokio::runtime::Runtime;
 
-#[derive(Debug)]
-struct Error(String);
+pub fn rt() -> &'static Runtime {
+    static RT: LazyLock<Runtime> = LazyLock::new(|| {
+        Builder::new_multi_thread()
+            .enable_all()
+            .thread_name("scopeql_thread")
+            .build()
+            .expect("failed to create runtime")
+    });
 
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
+    &RT
 }
-
-impl std::error::Error for Error {}
