@@ -20,7 +20,7 @@ RUN ./scopeql/scripts/docker-build.sh
 FROM public.ecr.aws/docker/library/debian:bullseye-slim
 WORKDIR /app/
 
-COPY --from=build /build/scopeql/target/dist/scopeql /bin/
-COPY LICENSE scopeql/README.md /app/
+COPY --from=build /build/target/dist/scopeql /bin/
+COPY LICENSE README.md /app/
 
 ENTRYPOINT ["/bin/scopeql"]
