@@ -33,7 +33,7 @@ comfy-table = { version = "7.1.4", default-features = false }
 const_format = { version = "0.2.34" }
 csv = { version = "1.4" }
 dirs = { version = "6.0" }
-exn = { version = "0.3.0-rc.2" }
+exn = { version = "0.3.0" }
 fastrace = { version = "0.7", features = ["enable"] }
 fastrace-reqwest = { version = "0.2" }
 hex = { version = "0.4.3" }
@@ -41,7 +41,6 @@ indicatif = { version = "0.18" }
 jiff = { version = "0.2", features = ["serde"] }
 log = { version = "0.4.29" }
 logforth = { version = "0.29.1", features = ["starter-log"] }
-logos = { version = "0.16.0" }
 mea = { version = "0.6.3" }
 memchr = { version = "2.7.6" }
 nu-ansi-term = { version = "0.50" }
