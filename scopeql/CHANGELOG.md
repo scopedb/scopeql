@@ -4,6 +4,10 @@ All significant changes to this software be documented in this file.
 
 ## Unreleased
 
+## v0.3.1 (2026-01-31)
+
+Functionality identical to v0.3.0, released the first binary after repo migration.
+
 ## v0.3.0 (2025-12-22)
 
 ### Breaking Changes
