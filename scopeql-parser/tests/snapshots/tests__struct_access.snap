@@ -1,5 +1,5 @@
 ---
-source: scopeql-lexer/tests/tests.rs
+source: scopeql-parser/tests/tests.rs
 expression: "lex(\"from t select id - 1, var['message']::string as message\")"
 ---
 [INPUT]

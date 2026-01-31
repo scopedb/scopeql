@@ -1,5 +1,5 @@
 ---
-source: scopeql-lexer/tests/tests.rs
+source: scopeql-parser/tests/tests.rs
 expression: "lex(\"values (123, 123.456, 1e10, 1.2e-3, 0x1A, 0)\")"
 ---
 [INPUT]

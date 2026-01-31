@@ -1,5 +1,5 @@
 ---
-source: scopeql-lexer/tests/tests.rs
+source: scopeql-parser/tests/tests.rs
 expression: "lex(r#\"values (1, 'a''b', \"c\\\"d\", `e\\`f`), (x'FF', 0xFF)\"#)"
 ---
 [INPUT]

@@ -1,5 +1,5 @@
 ---
-source: scopeql-lexer/tests/tests.rs
+source: scopeql-parser/tests/tests.rs
 expression: "lex(\"select 1, 'a' as a select a as b, $0\")"
 ---
 [INPUT]

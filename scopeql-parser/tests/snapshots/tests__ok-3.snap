@@ -1,5 +1,5 @@
 ---
-source: scopeql-lexer/tests/tests.rs
+source: scopeql-parser/tests/tests.rs
 expression: "lex(\"from system.tables where database_name = 'scopedb' and schema_name != 'system'\")"
 ---
 [INPUT]

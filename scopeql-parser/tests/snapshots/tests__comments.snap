@@ -1,5 +1,5 @@
 ---
-source: scopeql-lexer/tests/tests.rs
+source: scopeql-parser/tests/tests.rs
 expression: "lex(r#\"\n    -- This is a comment\n    select 1;\n    /* This is a\n       multi-line comment */\n    select 2;\n    \"#)"
 ---
 [INPUT]
@@ -9,7 +9,7 @@ expression: "lex(r#\"\n    -- This is a comment\n    select 1;\n    /* This is a
     /* This is a
        multi-line comment */
     select 2;
-    
+
 [OUTPUT]
 +--------+----------------+--------------+----------+
 | Status | Token          | Slice        | Span     |

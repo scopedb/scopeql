@@ -14,7 +14,19 @@
 
 headerPath = "Apache-2.0.txt"
 
-includes = ['**/*.proto', '**/*.rs', '**/*.yml', '**/*.yaml', '**/*.toml', '**/*.sh']
+includes = [
+  '**/*.proto',
+  '**/*.rs',
+  '**/*.yml',
+  '**/*.yaml',
+  '**/*.toml',
+  '**/*.sh',
+]
+
+excludes = [
+  # Generated files
+  ".github/workflows/release.yml",
+]
 
 [properties]
 copyrightOwner = "ScopeDB, Inc."

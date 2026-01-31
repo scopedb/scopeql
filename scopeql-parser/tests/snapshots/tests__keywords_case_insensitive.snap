@@ -1,5 +1,5 @@
 ---
-source: scopeql-lexer/tests/tests.rs
+source: scopeql-parser/tests/tests.rs
 expression: "lex(\"SeLeCt * FrOm T wHeRe Id = 1\")"
 ---
 [INPUT]

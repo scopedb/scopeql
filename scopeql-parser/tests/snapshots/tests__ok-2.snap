@@ -1,5 +1,5 @@
 ---
-source: scopeql-lexer/tests/tests.rs
+source: scopeql-parser/tests/tests.rs
 expression: "lex(\"values (1, 'a'), (2, 'b'), (3, 'c') insert into public.t1\")"
 ---
 [INPUT]
