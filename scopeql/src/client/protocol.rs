@@ -231,9 +231,13 @@ pub struct StatementProgress {
     pub scanned_rows: i64,
     pub scanned_compressed_bytes: i64,
     pub scanned_uncompressed_bytes: i64,
+    #[serde(default)]
     pub skipped_partitions: i64,
+    #[serde(default)]
     pub skipped_rows: i64,
+    #[serde(default)]
     pub skipped_compressed_bytes: i64,
+    #[serde(default)]
     pub skipped_uncompressed_bytes: i64,
 }
 
