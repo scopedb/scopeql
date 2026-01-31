@@ -40,16 +40,6 @@ impl Client {
         }
     }
 
-    pub async fn health_check(&self) -> Result<(), Error> {
-        let url = self.make_url("v1/health")?;
-        self.client
-            .get(url)
-            .send()
-            .await
-            .map_err(|err| Error(format!("failed to send health check request: {err}")))?;
-        Ok(())
-    }
-
     #[fastrace::trace]
     pub async fn submit_statement(
         &self,

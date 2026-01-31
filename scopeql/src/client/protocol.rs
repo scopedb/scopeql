@@ -207,38 +207,6 @@ pub struct StatementStatusCancelled {
     pub message: String,
 }
 
-impl StatementStatus {
-    pub fn statement_id(&self) -> Uuid {
-        match self {
-            StatementStatus::Pending(s) => s.statement_id,
-            StatementStatus::Running(s) => s.statement_id,
-            StatementStatus::Finished(s) => s.statement_id,
-            StatementStatus::Failed(s) => s.statement_id,
-            StatementStatus::Cancelled(s) => s.statement_id,
-        }
-    }
-
-    pub fn created_at(&self) -> jiff::Timestamp {
-        match self {
-            StatementStatus::Pending(s) => s.created_at,
-            StatementStatus::Running(s) => s.created_at,
-            StatementStatus::Finished(s) => s.created_at,
-            StatementStatus::Failed(s) => s.created_at,
-            StatementStatus::Cancelled(s) => s.created_at,
-        }
-    }
-
-    pub fn progress(&self) -> &StatementEstimatedProgress {
-        match self {
-            StatementStatus::Pending(s) => &s.progress,
-            StatementStatus::Running(s) => &s.progress,
-            StatementStatus::Finished(s) => &s.progress,
-            StatementStatus::Failed(s) => &s.progress,
-            StatementStatus::Cancelled(s) => &s.progress,
-        }
-    }
-}
-
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct StatementEstimatedProgress {
     /// Total progress in percentage: `[0.0, 100.0]`.
@@ -299,14 +267,6 @@ pub struct StatementResultSet {
 pub enum ResultSetData {
     #[serde(rename = "json")]
     Json { rows: Vec<Vec<Option<String>>> },
-}
-
-impl ResultSetData {
-    pub fn format(&self) -> ResultFormat {
-        match self {
-            Self::Json { .. } => ResultFormat::Json,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

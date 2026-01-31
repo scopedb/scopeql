@@ -17,7 +17,6 @@ use std::str::FromStr;
 
 use crate::Error;
 use crate::client::protocol::DataType;
-use crate::client::protocol::ResultFormat;
 use crate::client::protocol::ResultSetData;
 use crate::client::protocol::StatementResultSet;
 
@@ -62,10 +61,6 @@ impl ResultSet {
 
     pub fn schema(&self) -> &Schema {
         &self.schema
-    }
-
-    pub fn format(&self) -> ResultFormat {
-        self.data.format()
     }
 
     pub fn into_values(self) -> Result<Vec<Vec<Value>>, Error> {
