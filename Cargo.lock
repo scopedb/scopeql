@@ -2120,6 +2120,7 @@ dependencies = [
  "nu-ansi-term",
  "reedline",
  "reqwest",
+ "scopeql-parser",
  "serde",
  "serde_json",
  "shadow-rs",
