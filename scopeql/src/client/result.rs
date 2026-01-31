@@ -83,41 +83,39 @@ impl ResultSet {
                     continue;
                 };
 
-                let value = match self.schema.fields[i].data_type() {
-                    DataType::Int => Value::Int(
-                        i64::from_str(&value)
-                            .map_err(|err| Error(format!("failed to parse int value: {err}")))?,
-                    ),
-                    DataType::UInt => Value::UInt(
-                        u64::from_str(&value)
-                            .map_err(|err| Error(format!("failed to parse uint value: {err}")))?,
-                    ),
-                    DataType::Float => Value::Float(
-                        f64::from_str(&value)
-                            .map_err(|err| Error(format!("failed to parse float value: {err}")))?,
-                    ),
-                    DataType::Timestamp => {
-                        Value::Timestamp(jiff::Timestamp::from_str(&value).map_err(|err| {
-                            Error(format!("failed to parse timestamp value: {err}"))
-                        })?)
-                    }
-                    DataType::Interval => {
-                        Value::Interval(jiff::SignedDuration::from_str(&value).map_err(|err| {
-                            Error(format!("failed to parse interval value: {err}"))
-                        })?)
-                    }
-                    DataType::Boolean => {
-                        Value::Boolean(bool::from_str(&value).map_err(|err| {
-                            Error(format!("failed to parse boolean value: {err}"))
-                        })?)
-                    }
-                    DataType::String => Value::String(value),
-                    DataType::Binary => Value::Binary(value),
-                    DataType::Array => Value::Array(value),
-                    DataType::Object => Value::Object(value),
-                    DataType::Any => Value::Any(value),
-                    DataType::Null => unreachable!("null values must be None in rows"),
-                };
+                let value =
+                    match self.schema.fields[i].data_type() {
+                        DataType::Int => Value::Int(i64::from_str(&value).map_err(|err| {
+                            Error::new(format!("failed to parse int value: {err}"))
+                        })?),
+                        DataType::UInt => Value::UInt(u64::from_str(&value).map_err(|err| {
+                            Error::new(format!("failed to parse uint value: {err}"))
+                        })?),
+                        DataType::Float => Value::Float(f64::from_str(&value).map_err(|err| {
+                            Error::new(format!("failed to parse float value: {err}"))
+                        })?),
+                        DataType::Timestamp => {
+                            Value::Timestamp(jiff::Timestamp::from_str(&value).map_err(|err| {
+                                Error::new(format!("failed to parse timestamp value: {err}"))
+                            })?)
+                        }
+                        DataType::Interval => {
+                            Value::Interval(jiff::SignedDuration::from_str(&value).map_err(
+                                |err| Error::new(format!("failed to parse interval value: {err}")),
+                            )?)
+                        }
+                        DataType::Boolean => {
+                            Value::Boolean(bool::from_str(&value).map_err(|err| {
+                                Error::new(format!("failed to parse boolean value: {err}"))
+                            })?)
+                        }
+                        DataType::String => Value::String(value),
+                        DataType::Binary => Value::Binary(value),
+                        DataType::Array => Value::Array(value),
+                        DataType::Object => Value::Object(value),
+                        DataType::Any => Value::Any(value),
+                        DataType::Null => unreachable!("null values must be None in rows"),
+                    };
                 value_row.push(value);
             }
             values.push(value_row);

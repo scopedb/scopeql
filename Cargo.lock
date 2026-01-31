@@ -2099,6 +2099,7 @@ name = "scopeql"
 version = "0.3.1"
 dependencies = [
  "anstyle",
+ "anyhow",
  "build-data",
  "clap",
  "comfy-table",

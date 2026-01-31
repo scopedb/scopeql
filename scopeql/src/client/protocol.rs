@@ -32,7 +32,7 @@ pub enum Response<T> {
 
 impl<T: DeserializeOwned> Response<T> {
     pub async fn from_http_response(r: reqwest::Response) -> Result<Self, Error> {
-        let make_error = |err| Error(format!("failed to make response: {err}"));
+        let make_error = |err| Error::new("failed to make response".to_string()).set_source(err);
 
         let code = r.status();
         if code.is_success() {

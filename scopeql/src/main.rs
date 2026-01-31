@@ -103,12 +103,34 @@ fn main() {
 }
 
 #[derive(Debug)]
-struct Error(String);
+struct Error {
+    message: String,
+    source: Option<anyhow::Error>,
+}
 
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+impl Error {
+    fn new(message: String) -> Self {
+        Self {
+            message,
+            source: None,
+        }
+    }
+
+    fn set_source(mut self, src: impl Into<anyhow::Error>) -> Self {
+        debug_assert!(self.source.is_none(), "the source error has been set");
+        self.source = Some(src.into());
+        self
     }
 }
 
-impl std::error::Error for Error {}
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        self.source.as_ref().map(|v| v.as_ref())
+    }
+}

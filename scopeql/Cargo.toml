@@ -28,6 +28,7 @@ repository.workspace = true
 
 [dependencies]
 anstyle = { version = "1.0" }
+anyhow = { version = "1.0.100" }
 clap = { version = "4.5", features = ["cargo", "derive"] }
 comfy-table = { version = "7.1.4", default-features = false }
 const_format = { version = "0.2.34" }

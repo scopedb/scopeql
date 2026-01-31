@@ -82,7 +82,7 @@ pub fn load(config: &Config, file: PathBuf, transform: String, format: Option<Da
 
 fn load_csv_data(file: PathBuf) -> Result<String, Error> {
     let make_error = || {
-        Error(format!(
+        Error::new(format!(
             "failed to load csv data from file: {}",
             file.display()
         ))
@@ -106,7 +106,7 @@ fn load_csv_data(file: PathBuf) -> Result<String, Error> {
 
 fn load_json_data(file: PathBuf) -> Result<String, Error> {
     let make_error = || {
-        Error(format!(
+        Error::new(format!(
             "failed to load json data from file: {}",
             file.display()
         ))

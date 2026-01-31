@@ -36,7 +36,7 @@ impl Client {
     pub fn new<E: IntoUrl>(endpoint: E, client: reqwest::Client) -> Result<Self, Error> {
         match endpoint.into_url() {
             Ok(endpoint) => Ok(Self { endpoint, client }),
-            Err(err) => Err(Error(format!("failed to parse endpoint: {err}"))),
+            Err(err) => Err(Error::new("failed to parse endpoint".to_string()).set_source(err)),
         }
     }
 
@@ -53,7 +53,9 @@ impl Client {
             .json(&request)
             .send()
             .await
-            .map_err(|err| Error(format!("failed to submit statement: {request:?}; {err}")))?;
+            .map_err(|err| {
+                Error::new(format!("failed to submit statement: {request:?}")).set_source(err)
+            })?;
         Response::from_http_response(response).await
     }
 
@@ -72,7 +74,9 @@ impl Client {
             .query(&params)
             .send()
             .await
-            .map_err(|err| Error(format!("failed to fetch statement {statement_id:?}: {err}")))?;
+            .map_err(|err| {
+                Error::new(format!("failed to fetch statement {statement_id:?}")).set_source(err)
+            })?;
         Response::from_http_response(response).await
     }
 
@@ -90,9 +94,7 @@ impl Client {
             .send()
             .await
             .map_err(|err| {
-                Error(format!(
-                    "failed to cancel statement {statement_id:?}: {err}"
-                ))
+                Error::new(format!("failed to cancel statement {statement_id:?}")).set_source(err)
             })?;
         Response::from_http_response(response).await
     }
@@ -108,7 +110,9 @@ impl Client {
             .json(&request)
             .send()
             .await
-            .map_err(|err| Error(format!("failed to ingest data in {format}: {err}")))?;
+            .map_err(|err| {
+                Error::new(format!("failed to ingest data in {format}")).set_source(err)
+            })?;
         Response::from_http_response(response).await
     }
 
@@ -116,6 +120,6 @@ impl Client {
     fn make_url(&self, path: &str) -> Result<Url, Error> {
         self.endpoint
             .join(path)
-            .map_err(|err| Error(format!("failed to construct URL: {err}")))
+            .map_err(|err| Error::new("failed to construct URL".to_string()).set_source(err))
     }
 }

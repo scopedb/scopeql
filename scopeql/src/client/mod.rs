@@ -14,7 +14,6 @@
 
 use std::time::Duration;
 
-use exn::ErrorExt;
 use exn::Result;
 use exn::ResultExt;
 use exn::bail;
@@ -67,7 +66,7 @@ fn format_result_set(
 
     let rows = result_set
         .into_values()
-        .or_raise(|| Error("failed to convert result rows".to_string()))?;
+        .or_raise(|| Error::new("failed to convert result rows".to_string()))?;
 
     // @see https://docs.rs/comfy-table/7.1.3/comfy_table/presets/index.html
     const TABLE_STYLE_PRESET: &str = "||--+-++|    ++++++";
@@ -137,7 +136,7 @@ impl ScopeQLClient {
     ) -> Result<IngestResult, Error> {
         let data = IngestData::Json { rows: jsonlines };
         let format = data.format();
-        let make_error = || Error(format!("failed to load {format} data: {transform}"));
+        let make_error = || Error::new(format!("failed to load {format} data: {transform}"));
 
         match self
             .client
@@ -151,7 +150,7 @@ impl ScopeQLClient {
         {
             Response::Success(result) => Ok(result),
             Response::Failed(err) => {
-                Err(Error(format!("fail to insert data: {err}"))).or_raise(make_error)
+                Err(Error::new(format!("fail to insert data: {err}"))).or_raise(make_error)
             }
         }
     }
@@ -163,7 +162,7 @@ impl ScopeQLClient {
         display_progress: impl Fn(&'static str, StatementEstimatedProgress),
     ) -> Result<String, Error> {
         let make_error = || {
-            Error(format!(
+            Error::new(format!(
                 "failed to execute statement ({statement_id}): {statement}"
             ))
         };
@@ -185,7 +184,9 @@ impl ScopeQLClient {
             .or_raise(make_error)?
         {
             Response::Success(status) => status,
-            Response::Failed(err) => bail!(Error(format!("failed to submit statement: {err}"))),
+            Response::Failed(err) => {
+                bail!(Error::new(format!("failed to submit statement: {err}")));
+            }
         };
 
         loop {
@@ -223,7 +224,9 @@ impl ScopeQLClient {
                 .or_raise(make_error)?
             {
                 Response::Success(status) => status,
-                Response::Failed(err) => bail!(Error(format!("failed to fetch statement: {err}"))),
+                Response::Failed(err) => {
+                    bail!(Error::new(format!("failed to fetch statement: {err}")));
+                }
             }
         }
     }
@@ -235,7 +238,7 @@ impl ScopeQLClient {
         match self.client.cancel_statement(statement_id).await? {
             Response::Success(response) => Ok(response),
             Response::Failed(err) => {
-                Err(Error(format!("failed to cancel statement: {err}")).raise())
+                bail!(Error::new(format!("failed to cancel statement: {err}")));
             }
         }
     }
