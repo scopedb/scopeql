@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![feature(string_from_utf8_lossy_owned)]
+
+mod client;
 mod config;
 mod global;
 mod pretty;
