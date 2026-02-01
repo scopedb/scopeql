@@ -41,5 +41,4 @@ Changelog = "https://github.com/scopedb/scopeql/blob/main/CHANGELOG.md"
 bindings = "bin"
 manifest-path = "scopeql/Cargo.toml"
 module-name = "scopeql"
-python-source = "python"
 strip = true
