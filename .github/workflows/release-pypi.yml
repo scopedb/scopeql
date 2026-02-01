@@ -49,9 +49,8 @@ jobs:
           - { os: macos-15-intel, target: "x86_64-apple-darwin" }
           - { os: macos-15, target: "aarch64-apple-darwin" }
           - { os: ubuntu-24.04, target: "x86_64" }
-          - { os: ubuntu-24.04-arm, target: "aarch64" }
-          - { os: ubuntu-24.04-arm, target: "armv7l" }
           - { os: ubuntu-24.04, target: "x86_64-unknown-linux-musl" }
+          - { os: ubuntu-24.04-arm, target: "aarch64" }
           - { os: ubuntu-24.04-arm, target: "aarch64-unknown-linux-musl" }
           - { os: ubuntu-24.04-arm, target: "armv7-unknown-linux-musleabihf" }
     steps:
