@@ -1,0 +1,28 @@
+[build-system]
+requires = ["maturin>=1.5,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "scopeql"
+version = "0.3.1"
+description = "A command-line interface for ScopeDB"
+readme = "../README.md"
+license = { file = "../LICENSE" }
+authors = [{name = "ScopeDB, Inc.", email = "wander4096@gmail.com"}]
+requires-python = ">=3.8"
+classifiers = [
+    "Environment :: Console",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Rust",
+    "Programming Language :: Python",
+]
+
+[project.urls]
+Homepage = "https://github.com/scopedb/scopeql"
+Repository = "https://github.com/scopedb/scopeql"
+
+[tool.maturin]
+bindings = "bin"
+strip = true
