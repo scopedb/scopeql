@@ -6,17 +6,16 @@ build-backend = "maturin"
 name = "scopeql"
 version = "0.3.1"
 description = "A command-line interface for ScopeDB"
-readme = "../README.md"
-license = { file = "../LICENSE" }
+readme = "README.md"
+license = { file = "LICENSE" }
 authors = [{name = "ScopeDB, Inc.", email = "wander4096@gmail.com"}]
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 classifiers = [
     "Environment :: Console",
     "Operating System :: MacOS",
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Rust",
-    "Programming Language :: Python",
 ]
 
 [project.urls]
