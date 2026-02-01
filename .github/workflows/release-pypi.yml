@@ -26,58 +26,6 @@ permissions:
   contents: read
 
 jobs:
-  linux:
-    runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        target: [x86_64, x86, aarch64, armv7, s390x, ppc64le]
-    steps:
-      - uses: actions/checkout@v6
-      - uses: PyO3/maturin-action@v1
-        with:
-          target: ${{ matrix.target }}
-          args: --release --out dist --manifest-path scopeql/Cargo.toml
-          manylinux: auto
-      - name: Upload wheels
-        uses: actions/upload-artifact@v4
-        with:
-          name: wheels-linux-${{ matrix.target }}
-          path: dist
-
-  windows:
-    runs-on: windows-2022
-    strategy:
-      matrix:
-        target: [x64, x86]
-    steps:
-      - uses: actions/checkout@v6
-      - uses: PyO3/maturin-action@v1
-        with:
-          target: ${{ matrix.target }}
-          args: --release --out dist --manifest-path scopeql/Cargo.toml
-      - name: Upload wheels
-        uses: actions/upload-artifact@v4
-        with:
-          name: wheels-windows-${{ matrix.target }}
-          path: dist
-
-  macos:
-    runs-on: macos-14
-    strategy:
-      matrix:
-        target: [x86_64, aarch64]
-    steps:
-      - uses: actions/checkout@v6
-      - uses: PyO3/maturin-action@v1
-        with:
-          target: ${{ matrix.target }}
-          args: --release --out dist --manifest-path scopeql/Cargo.toml
-      - name: Upload wheels
-        uses: actions/upload-artifact@v4
-        with:
-          name: wheels-macos-${{ matrix.target }}
-          path: dist
-
   sdist:
     runs-on: ubuntu-24.04
     steps:
@@ -85,24 +33,60 @@ jobs:
       - uses: PyO3/maturin-action@v1
         with:
           command: sdist
-          args: -o dist --manifest-path scopeql/Cargo.toml
+          args: -o dist -m scopeql/Cargo.toml
       - name: Upload sdist
         uses: actions/upload-artifact@v4
         with:
           name: wheels-sdist
           path: dist
 
+  wheels:
+    runs-on: "${{ matrix.os }}"
+    strategy:
+      matrix:
+        include:
+          - { os: windows-2022 }
+          - { os: macos-15-intel, target: "x86_64-apple-darwin" }
+          - { os: macos-15, target: "aarch64-apple-darwin" }
+          - { os: ubuntu-24.04, target: "x86_64" }
+          - { os: ubuntu-24.04, target: "aarch64" }
+          - { os: ubuntu-24.04, target: "armv7l" }
+          - { os: ubuntu-24.04, target: "x86_64-unknown-linux-musl" }
+          - { os: ubuntu-24.04, target: "aarch64-unknown-linux-musl" }
+          - { os: ubuntu-24.04, target: "armv7-unknown-linux-musleabihf" }
+    steps:
+      - uses: actions/checkout@v6
+      - uses: Swatinem/rust-cache@v2
+      - name: Build python 3.14t
+        uses: PyO3/maturin-action@v1
+        with:
+          target: "${{ matrix.target }}"
+          command: build
+          args: --release -o dist -i python3.14t -m scopeql/Cargo.toml
+          sccache: true
+          manylinux: auto
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v6
+        with:
+          name: wheels-${{ matrix.os }}-${{ matrix.target }}
+          path: dist
+
   release:
     name: Release
-    runs-on: ubuntu-24.04
-    needs: [linux, windows, macos, sdist]
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
+    needs: [sdist, wheels]
     steps:
-      - uses: actions/download-artifact@v4
-      - name: Publish to PyPI
-        uses: PyO3/maturin-action@v1
+      - uses: actions/download-artifact@v7
         with:
-          command: upload
-          args: --non-interactive --skip-existing wheels-*/*
+          pattern: wheels-*
+          merge-multiple: true
+          path: dist
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
+          packages-dir: dist
