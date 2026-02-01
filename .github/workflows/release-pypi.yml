@@ -61,7 +61,7 @@ jobs:
         with:
           target: "${{ matrix.target }}"
           command: build
-          args: --release -o dist -i python3.14t -m scopeql/Cargo.toml
+          args: --profile dist -o dist -m scopeql/Cargo.toml
           sccache: true
           manylinux: auto
 
@@ -73,7 +73,9 @@ jobs:
 
   release:
     name: Release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    environment:
+      name: release
     permissions:
       contents: read
       id-token: write
@@ -86,6 +88,7 @@ jobs:
           path: dist
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        if: ${{ github.repository == 'scopedb/scopeql' && github.event_name != 'pull_request' }}
         with:
           skip-existing: true
           packages-dir: dist
