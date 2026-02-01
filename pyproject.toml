@@ -13,16 +13,15 @@
 # limitations under the License.
 
 [build-system]
-build-backend = "maturin"
 requires = ["maturin>=1.5,<2.0"]
+build-backend = "maturin"
 
 [project]
 name = "scopeql"
 version = "0.3.1"
-
-description = "A command-line interface for ScopeDB"
 requires-python = ">=3.10"
-
+description = "A command-line interface for ScopeDB"
+authors = [{ name = "ScopeDB Inc.", email = "tison@scopedb.io" }]
 classifiers = [
   "Environment :: Console",
   "Operating System :: MacOS",
@@ -36,7 +35,11 @@ readme = "README.md"
 [project.urls]
 Homepage = "https://github.com/scopedb/scopeql"
 Repository = "https://github.com/scopedb/scopeql"
+Changelog = "https://github.com/scopedb/scopeql/blob/main/CHANGELOG.md"
 
 [tool.maturin]
 bindings = "bin"
+manifest-path = "scopeql/Cargo.toml"
+module-name = "scopeql"
+python-source = "python"
 strip = true

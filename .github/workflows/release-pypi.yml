@@ -33,7 +33,7 @@ jobs:
       - uses: PyO3/maturin-action@v1
         with:
           command: sdist
-          args: -o dist -m scopeql/Cargo.toml
+          args: -o dist
       - name: Upload sdist
         uses: actions/upload-artifact@v4
         with:
@@ -61,7 +61,7 @@ jobs:
         with:
           target: "${{ matrix.target }}"
           command: build
-          args: --profile dist -o dist -m scopeql/Cargo.toml
+          args: --profile dist -o dist
           sccache: true
           manylinux: auto
 
