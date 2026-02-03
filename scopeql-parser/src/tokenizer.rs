@@ -290,6 +290,8 @@ pub enum TokenKind {
     ORDER,
     #[token("OUTER", ignore(case))]
     OUTER,
+    #[token("PARTITION", ignore(case))]
+    PARTITION,
     #[token("PERCENT", ignore(case))]
     PERCENT,
     #[token("PLAN", ignore(case))]
