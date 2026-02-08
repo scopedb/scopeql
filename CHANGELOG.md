@@ -4,6 +4,13 @@ All significant changes to this software be documented in this file.
 
 ## Unreleased
 
+## v0.3.2 (2026-02-08)
+
+### Improvements
+
+* Recognize `PARTITION` token for `PARTITION BY` clause.
+* Better error message for unrecognized tokens.
+
 ## v0.3.1 (2026-01-31)
 
 Functionality identical to v0.3.0, released the first binary after repo migration.

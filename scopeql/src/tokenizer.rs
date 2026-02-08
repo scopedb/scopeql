@@ -14,8 +14,12 @@
 
 use std::ops::Range;
 
+use exn::Result;
+use exn::bail;
 use scopeql_parser::TokenKind;
 use scopeql_parser::Tokenizer;
+
+use crate::Error;
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct Token<'a> {
@@ -24,11 +28,17 @@ pub struct Token<'a> {
     pub span: Range<usize>,
 }
 
-pub fn run_tokenizer(source: &'_ str) -> Result<Vec<Token<'_>>, ()> {
+pub fn run_tokenizer(source: &'_ str) -> Result<Vec<Token<'_>>, Error> {
     let mut tokens = vec![];
     let mut tokenizer = Tokenizer::new(source);
     while let Some(token) = tokenizer.next() {
-        let kind = token?;
+        let Ok(kind) = token else {
+            bail!(Error::new(format!(
+                "failed to recognize token at position {}: {}",
+                tokenizer.span().start,
+                tokenizer.slice()
+            )));
+        };
         tokens.push(Token {
             source,
             kind,
