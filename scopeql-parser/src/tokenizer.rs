@@ -296,6 +296,8 @@ pub enum TokenKind {
     PERCENT,
     #[token("PLAN", ignore(case))]
     PLAN,
+    #[token("POINT", ignore(case))]
+    POINT,
     #[token("RANGE", ignore(case))]
     RANGE,
     #[token("RENAME", ignore(case))]
