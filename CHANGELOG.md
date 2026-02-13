@@ -4,6 +4,18 @@ All significant changes to this software be documented in this file.
 
 ## Unreleased
 
+## v0.4.0 (2026-02-13)
+
+This release bumps the minimal supported ScopeDB version to v0.2.0, which drops support for `CREATE EQUALITY INDEX` and `CREATE OBJECT INDEX`. Both of them are now merged into the new `CREATE POINT INDEX` clause.
+
+### Breaking Changes
+
+* No longer recognize `EQUALITY` token since `CREATE EQUALITY INDEX` clause has been merged into `CREATE POINT INDEX`.
+
+### New Features
+
+* Recognize `POINT` token for `CREATE POINT INDEX` clause.
+
 ## v0.3.2 (2026-02-08)
 
 ### Improvements

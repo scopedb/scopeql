@@ -14,7 +14,7 @@
 
 [package]
 name = "scopeql"
-version = "0.3.2"
+version = "0.4.0"
 
 categories = ["database"]
 description = "A command-line interface for ScopeDB"
@@ -36,7 +36,7 @@ csv = { version = "1.4" }
 dirs = { version = "6.0" }
 exn = { version = "0.3.0" }
 fastrace = { version = "0.7", features = ["enable"] }
-fastrace-reqwest = { version = "0.2" }
+fastrace-reqwest = { version = "0.3.0" }
 hex = { version = "0.4.3" }
 indicatif = { version = "0.18" }
 jiff = { version = "0.2", features = ["serde"] }
@@ -46,25 +46,26 @@ mea = { version = "0.6.3" }
 memchr = { version = "2.7.6" }
 nu-ansi-term = { version = "0.50" }
 reedline = { version = "0.45.0" }
-reqwest = { version = "0.12", default-features = false, features = [
+reqwest = { version = "0.13.2", default-features = false, features = [
   "json",
-  "rustls-tls",
+  "default-tls",
   "charset",
   "http2",
-  "macos-system-configuration",
+  "system-proxy",
+  "query",
 ] }
 scopeql-parser = { workspace = true, features = ["command"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = ["unbounded_depth"] }
 shadow-rs = { version = "1.2.1", default-features = false }
 tokio = { version = "1.47.1", features = ["full"] }
-toml = { version = "0.9.3" }
-toml_edit = { version = "0.24", features = ["serde"] }
+toml = { version = "1.0.1" }
+toml_edit = { version = "0.25.1", features = ["serde"] }
 uuid = { version = "1.20.0", features = ["v7", "serde"] }
 
 [build-dependencies]
 build-data = { version = "0.3.3" }
-gix-discover = { version = "0.46.0" }
+gix-discover = { version = "0.47.0" }
 shadow-rs = { version = "1.2.1", default-features = false, features = [
   "build",
 ] }
