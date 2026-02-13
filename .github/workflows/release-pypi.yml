@@ -26,7 +26,15 @@ permissions:
   contents: read
 
 jobs:
+  precondition:
+    if: ${{ github.repository == 'scopedb/scopeql' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - run: ./scopeql/scripts/check-version-tag-match.sh
+
   sdist:
+    needs: [ precondition ]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
@@ -41,6 +49,7 @@ jobs:
           path: dist
 
   wheels:
+    needs: [ precondition ]
     runs-on: "${{ matrix.os }}"
     strategy:
       matrix:
