@@ -24,7 +24,7 @@ readme = "README.md"
 repository = "https://github.com/scopedb/scopeql"
 
 [workspace.dependencies]
-scopeql-parser = { path = "scopeql-parser", version = "0.1.1" }
+scopeql-parser = { path = "scopeql-parser", version = "0.2.0" }
 
 [workspace.lints.rust]
 unknown_lints = "deny"
