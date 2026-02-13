@@ -4,6 +4,8 @@ All significant changes to this software be documented in this file.
 
 ## Unreleased
 
+## v0.4.3 (2026-02-13)
+
 ### Bug Fixes
 
 * Install CA certificates for HTTPS support in Docker Image.
