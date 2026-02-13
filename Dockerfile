@@ -20,6 +20,8 @@ RUN ./scopeql/scripts/docker-build.sh
 FROM public.ecr.aws/docker/library/debian:bullseye-slim
 WORKDIR /app/
 
+RUN apt-get update && apt-get install -y ca-certificates
+
 COPY --from=build /build/target/dist/scopeql /bin/
 COPY LICENSE README.md /app/
 
