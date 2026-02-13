@@ -14,7 +14,7 @@
 
 [package]
 name = "scopeql"
-version = "0.4.1"
+version = "0.4.2"
 
 categories = ["database"]
 description = "A command-line interface for ScopeDB"
