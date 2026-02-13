@@ -212,8 +212,6 @@ pub enum TokenKind {
     ELSE,
     #[token("END", ignore(case))]
     END,
-    #[token("EQUALITY", ignore(case))]
-    EQUALITY,
     #[token("EXCLUDE", ignore(case))]
     EXCLUDE,
     #[token("EXEC", ignore(case))]
