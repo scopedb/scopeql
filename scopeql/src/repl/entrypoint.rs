@@ -138,7 +138,7 @@ pub fn entrypoint(config: &Config, initial_output_format: OutputFormat) {
                         show_timer = false;
                         println!("timer: off");
                     }
-                    other => println!("error: expected 'on' or 'off', got '{other}'"),
+                    other => eprintln!("error: expected 'on' or 'off', got '{other}'"),
                 },
                 ReplSubCommand::Help => crate::repl::command::print_repl_help(),
             }

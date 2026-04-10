@@ -209,7 +209,7 @@ fn value_to_json(value: Value) -> serde_json::Value {
             .unwrap_or(serde_json::Value::Null),
         Value::Boolean(value) => serde_json::Value::Bool(value),
         Value::String(value) => serde_json::Value::String(value),
-        Value::Timestamp(_) | Value::Interval(_) | Value::Binary(_) => {
+        value @ (Value::Timestamp(_) | Value::Interval(_) | Value::Binary(_)) => {
             serde_json::Value::String(value.to_string())
         }
         Value::Array(value) | Value::Object(value) | Value::Any(value) => {

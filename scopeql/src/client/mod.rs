@@ -137,10 +137,10 @@ impl ScopeQLClient {
                     );
                 }
                 StatementStatus::Failed(s) => {
-                    return Ok(s.message.clone());
+                    bail!(Error::new(format!("statement failed: {}", s.message)));
                 }
                 StatementStatus::Cancelled(s) => {
-                    return Ok(s.message.clone());
+                    bail!(Error::new(format!("statement cancelled: {}", s.message)));
                 }
             }
 
