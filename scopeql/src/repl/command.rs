@@ -16,6 +16,7 @@ use clap::Parser;
 use clap::Subcommand;
 
 use crate::client::ScopeQLClient;
+use crate::command::OutputFormat;
 use crate::global::rt;
 
 #[derive(Debug, Parser)]
@@ -33,6 +34,15 @@ pub enum ReplSubCommand {
     /// Connect to another ScopeDB server.
     #[command(name = "connect")]
     Connect(CommandConnect),
+    /// Set output format (table, json, csv, jsonl).
+    #[command(name = "mode")]
+    Mode(CommandMode),
+    /// Toggle timing display (on/off).
+    #[command(name = "timer")]
+    Timer(CommandTimer),
+    /// Show available REPL commands.
+    #[command(name = "help")]
+    Help,
 }
 
 #[derive(Debug, Parser)]
@@ -40,6 +50,20 @@ pub struct CommandConnect {
     /// The endpoint of the server to connect to.
     #[arg(value_name = "ENDPOINT")]
     pub endpoint: String,
+}
+
+#[derive(Debug, Parser)]
+pub struct CommandMode {
+    /// The output format to use.
+    #[arg(value_enum, value_name = "FORMAT")]
+    pub format: OutputFormat,
+}
+
+#[derive(Debug, Parser)]
+pub struct CommandTimer {
+    /// Enable or disable timing display.
+    #[arg(value_name = "on|off")]
+    pub toggle: String,
 }
 
 #[derive(Debug, Parser)]
@@ -78,4 +102,13 @@ impl CommandCancel {
             None => println!("interrupted"),
         }
     }
+}
+
+pub fn print_repl_help() {
+    println!("Available commands:");
+    println!("  \\connect <endpoint>   Connect to a ScopeDB server");
+    println!("  \\cancel <id>          Cancel a running statement");
+    println!("  \\mode <format>        Set output format (table, json, csv, jsonl)");
+    println!("  \\timer on|off         Toggle timing display");
+    println!("  \\help                 Show this help message");
 }

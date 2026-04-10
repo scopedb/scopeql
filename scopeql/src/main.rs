@@ -14,10 +14,13 @@
 
 #![feature(string_from_utf8_lossy_owned)]
 
+use std::num::NonZeroUsize;
+use std::path::PathBuf;
+
 use clap::Parser;
+use logforth::append::file::FileBuilder;
 use logforth::filter::env_filter::EnvFilterBuilder;
 
-use crate::command::Args;
 use crate::command::Command;
 use crate::command::GenerateTarget;
 use crate::command::Subcommand;
@@ -30,6 +33,7 @@ mod config;
 mod execute;
 mod global;
 mod load;
+mod output;
 mod pretty;
 mod repl;
 mod tokenizer;
@@ -38,17 +42,14 @@ mod version;
 fn main() {
     let cmd = Command::parse();
 
-    let Args { config_file, quiet } = cmd.args();
-    if !quiet {
-        logforth::starter_log::stdout()
-            .filter(EnvFilterBuilder::from_default_env_or("info").build())
-            .apply();
-    }
+    let args = cmd.args();
+    init_logger();
 
     match cmd.subcommand() {
         None => {
-            let config = load_config(config_file);
-            repl::entrypoint(&config);
+            log::info!("starting interactive repl");
+            let config = load_config(args.config_file.clone());
+            repl::entrypoint(&config, args.output);
         }
         Some(Subcommand::Run { files, statements }) => {
             // command definition ensures exactly one of statement or file is provided
@@ -57,21 +58,31 @@ fn main() {
                 "files: {files:?}, statements: {statements:?}"
             );
 
-            let config = load_config(config_file);
+            log::info!(
+                "running scopeql statements: {} inline, {} file inputs",
+                statements.len(),
+                files.len()
+            );
+            let config = load_config(args.config_file.clone());
             for stmt in statements {
-                execute::execute(&config, stmt);
+                execute::execute(&config, &args, stmt);
             }
             for file in files {
                 match std::fs::read_to_string(&file) {
-                    Ok(content) => execute::execute(&config, content),
+                    Ok(content) => execute::execute(&config, &args, content),
                     Err(err) => {
                         let file = file.display();
                         log::error!("failed to read script file {file}: {err}");
+                        eprintln!("error: failed to read script file {file}: {err}");
                     }
                 }
             }
         }
-        Some(Subcommand::Generate { target, output }) => {
+        Some(Subcommand::Generate {
+            target,
+            output_file,
+        }) => {
+            log::info!("generating CLI artifact for target {target:?}");
             let content = match target {
                 GenerateTarget::Config => {
                     let config = Config::default();
@@ -79,7 +90,7 @@ fn main() {
                 }
             };
 
-            if let Some(output) = output {
+            if let Some(output) = output_file {
                 std::fs::write(&output, content).unwrap_or_else(|err| {
                     let output = output.display();
                     let target = match target {
@@ -96,10 +107,39 @@ fn main() {
             transform,
             format,
         }) => {
-            let config = load_config(config_file);
-            load::load(&config, file, transform, format);
+            log::info!("starting load command for {}", file.display());
+            let config = load_config(args.config_file.clone());
+            load::load(&config, &args, file, transform, format);
         }
     }
+}
+
+fn init_logger() {
+    let Some(log_dir) = default_log_dir() else {
+        return;
+    };
+
+    let file = match FileBuilder::new(log_dir, "scopeql")
+        .filename_suffix("log")
+        .rollover_daily()
+        .max_log_files(NonZeroUsize::new(7).expect("non-zero"))
+        .build()
+    {
+        Ok(file) => file,
+        Err(_) => return,
+    };
+
+    let filter = EnvFilterBuilder::from_default_env_or("info").build();
+
+    let _ = logforth::starter_log::builder()
+        .dispatch(|dispatch| dispatch.filter(filter).append(file))
+        .try_apply();
+}
+
+fn default_log_dir() -> Option<PathBuf> {
+    dirs::cache_dir()
+        .map(|dir| dir.join("scopeql").join("logs"))
+        .or_else(|| dirs::home_dir().map(|dir| dir.join(".scopeql").join("logs")))
 }
 
 #[derive(Debug)]

@@ -34,6 +34,7 @@ use reedline::default_emacs_keybindings;
 use scopeql_parser::TokenKind;
 
 use crate::client::ScopeQLClient;
+use crate::command::OutputFormat;
 use crate::config::Config;
 use crate::global;
 use crate::repl::command::ReplCommand;
@@ -50,15 +51,22 @@ fn make_file_history() -> Option<FileBackedHistory> {
     };
 
     let history_file = home_dir.join(".scopeql_history");
-    let history = FileBackedHistory::with_file(1000, history_file).unwrap();
-    Some(history)
+    match FileBackedHistory::with_file(1000, history_file) {
+        Ok(history) => Some(history),
+        Err(err) => {
+            eprintln!("warning: cannot open history file: {err}");
+            None
+        }
+    }
 }
 
-pub fn entrypoint(config: &Config) {
+pub fn entrypoint(config: &Config, initial_output_format: OutputFormat) {
     let endpoint = config
         .get_default_connection()
         .expect("no default connection in config");
     let endpoint = endpoint.endpoint().to_owned();
+    let mut output_format = initial_output_format;
+    let mut show_timer = true;
 
     let mut prompt = CommandLinePrompt::default();
     let mut client = if endpoint.is_empty() {
@@ -117,6 +125,22 @@ pub fn entrypoint(config: &Config) {
                     prompt.set_endpoint(Some(endpoint));
                 }
                 ReplSubCommand::Cancel(cancel) => cancel.run(client.as_ref()),
+                ReplSubCommand::Mode(mode) => {
+                    output_format = mode.format;
+                    println!("output format: {}", output_format.as_str());
+                }
+                ReplSubCommand::Timer(timer) => match timer.toggle.as_str() {
+                    "on" => {
+                        show_timer = true;
+                        println!("timer: on");
+                    }
+                    "off" => {
+                        show_timer = false;
+                        println!("timer: off");
+                    }
+                    other => println!("error: expected 'on' or 'off', got '{other}'"),
+                },
+                ReplSubCommand::Help => crate::repl::command::print_repl_help(),
             }
             continue;
         }
@@ -192,17 +216,23 @@ pub fn entrypoint(config: &Config) {
             let output = global::rt().block_on({
                 let pb = pb.clone();
                 async move {
-                    let fut = client.execute_statement(statement_id, stmt, |status, progress| {
-                        pb.set_message(status.to_string());
-                        if progress.details.total_uncompressed_bytes > 0 {
-                            pb.set_length(progress.details.total_uncompressed_bytes as u64);
-                            pb.set_position(
-                                (progress.details.total_percentage() / 100.0
-                                    * progress.details.total_uncompressed_bytes as f64)
-                                    as u64,
-                            );
-                        }
-                    });
+                    let fut = client.execute_statement(
+                        statement_id,
+                        stmt,
+                        output_format,
+                        show_timer,
+                        |status, progress| {
+                            pb.set_message(status.to_string());
+                            if progress.details.total_uncompressed_bytes > 0 {
+                                pb.set_length(progress.details.total_uncompressed_bytes as u64);
+                                pb.set_position(
+                                    (progress.details.total_percentage() / 100.0
+                                        * progress.details.total_uncompressed_bytes as f64)
+                                        as u64,
+                                );
+                            }
+                        },
+                    );
 
                     tokio::select! {
                         _ = tokio::signal::ctrl_c() => None,
@@ -220,7 +250,7 @@ pub fn entrypoint(config: &Config) {
                 None => {
                     let output = global::rt().block_on(client.cancel_statement(statement_id));
                     match output {
-                        Ok(_) => println!("Statement {statement_id} has ben cancelled"),
+                        Ok(_) => println!("Statement {statement_id} has been cancelled"),
                         Err(err) => println!("{err:?}"),
                     }
                 }

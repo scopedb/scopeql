@@ -46,9 +46,33 @@ pub struct Args {
     #[clap(long, value_hint = ValueHint::FilePath, value_name = "FILE")]
     pub config_file: Option<PathBuf>,
 
+    /// Output format for query results.
+    #[clap(short = 'o', long, global = true, value_enum, default_value = "table")]
+    pub output: OutputFormat,
+
     /// Suppress normal output.
     #[clap(short, long, alias = "silent", default_value = "false")]
     pub quiet: bool,
+}
+
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub enum OutputFormat {
+    #[default]
+    Table,
+    Json,
+    Csv,
+    Jsonl,
+}
+
+impl OutputFormat {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Table => "table",
+            Self::Json => "json",
+            Self::Csv => "csv",
+            Self::Jsonl => "jsonl",
+        }
+    }
 }
 
 #[derive(Debug, Clone, clap::Subcommand)]
@@ -78,8 +102,8 @@ pub enum Subcommand {
     #[clap(name = "gen")]
     Generate {
         /// Output file path (if not specified, output to stdout).
-        #[clap(short, long, value_hint = ValueHint::FilePath)]
-        output: Option<PathBuf>,
+        #[clap(short = 'f', long = "file", value_hint = ValueHint::FilePath)]
+        output_file: Option<PathBuf>,
 
         /// The target to generate.
         #[clap(value_enum)]

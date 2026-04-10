@@ -15,11 +15,12 @@
 use scopeql_parser::TokenKind;
 
 use crate::client::ScopeQLClient;
+use crate::command::Args;
 use crate::config::Config;
 use crate::global;
 use crate::tokenizer::run_tokenizer;
 
-pub fn execute(config: &Config, stmts: String) {
+pub fn execute(config: &Config, args: &Args, stmts: String) {
     let endpoint = config
         .get_default_connection()
         .expect("no default connection in config");
@@ -30,6 +31,7 @@ pub fn execute(config: &Config, stmts: String) {
         Ok(tokens) => tokens,
         Err(err) => {
             log::error!("failed to parse statements: {err:?}");
+            eprintln!("error: failed to parse statements: {err:?}");
             std::process::exit(1);
         }
     };
@@ -71,19 +73,30 @@ pub fn execute(config: &Config, stmts: String) {
     }
 
     if stmts_range.is_empty() {
-        log::info!("no statements provided");
         return;
     }
 
     for range in stmts_range {
         let stmt = stmts[range].to_string();
         let id = uuid::Uuid::now_v7();
-        log::info!("executing statement {id}: {stmt}");
+        log::info!("executing statement {id}");
 
-        match global::rt().block_on(client.execute_statement(id, stmt, |_, _| ())) {
-            Ok(output) => log::info!("statement {id} results in:\n{output}"),
+        match global::rt().block_on(client.execute_statement(
+            id,
+            stmt,
+            args.output,
+            true,
+            |_, _| (),
+        )) {
+            Ok(output) => {
+                log::info!("statement {id} completed successfully");
+                if !args.quiet {
+                    println!("{output}");
+                }
+            }
             Err(err) => {
-                log::error!("failed to execute statement: {err:?}");
+                log::error!("statement {id} failed: {err:?}");
+                eprintln!("error: failed to execute statement: {err:?}");
                 std::process::exit(1);
             }
         }
