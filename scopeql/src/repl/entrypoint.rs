@@ -39,6 +39,7 @@ use crate::config::Config;
 use crate::global;
 use crate::repl::command::ReplCommand;
 use crate::repl::command::ReplSubCommand;
+use crate::repl::command::TimerToggle;
 use crate::repl::highlight::ScopeQLHighlighter;
 use crate::repl::prompt::CommandLinePrompt;
 use crate::repl::validate::ScopeQLValidator;
@@ -112,7 +113,7 @@ pub fn entrypoint(config: &Config, initial_output_format: OutputFormat) {
             let cmd = match ReplCommand::try_parse_from(input.split_whitespace()) {
                 Ok(cmd) => cmd,
                 Err(err) => {
-                    println!("{err}");
+                    eprintln!("{err}");
                     continue;
                 }
             };
@@ -129,16 +130,15 @@ pub fn entrypoint(config: &Config, initial_output_format: OutputFormat) {
                     output_format = mode.format;
                     println!("output format: {}", output_format.as_str());
                 }
-                ReplSubCommand::Timer(timer) => match timer.toggle.as_str() {
-                    "on" => {
+                ReplSubCommand::Timer(timer) => match timer.toggle {
+                    TimerToggle::On => {
                         show_timer = true;
                         println!("timer: on");
                     }
-                    "off" => {
+                    TimerToggle::Off => {
                         show_timer = false;
                         println!("timer: off");
                     }
-                    other => eprintln!("error: expected 'on' or 'off', got '{other}'"),
                 },
                 ReplSubCommand::Help => crate::repl::command::print_repl_help(),
             }
@@ -148,7 +148,7 @@ pub fn entrypoint(config: &Config, initial_output_format: OutputFormat) {
         let tokens = match run_tokenizer(input) {
             Ok(tokens) => tokens,
             Err(err) => {
-                println!("{err:?}");
+                eprintln!("{err}");
                 continue;
             }
         };
@@ -187,7 +187,7 @@ pub fn entrypoint(config: &Config, initial_output_format: OutputFormat) {
 
         let outstanding = input[start..].trim_start();
         let Some(client) = client.as_ref() else {
-            println!("error: execute statements without endpoint");
+            eprintln!("error: execute statements without endpoint");
             continue;
         };
 
@@ -246,12 +246,14 @@ pub fn entrypoint(config: &Config, initial_output_format: OutputFormat) {
 
             match output {
                 Some(Ok(output)) => println!("{output}"),
-                Some(Err(err)) => println!("{err:?}"),
+                Some(Err(err)) => eprintln!("error: statement {statement_id} failed: {err}"),
                 None => {
                     let output = global::rt().block_on(client.cancel_statement(statement_id));
                     match output {
                         Ok(_) => println!("Statement {statement_id} has been cancelled"),
-                        Err(err) => println!("{err:?}"),
+                        Err(err) => {
+                            eprintln!("error: failed to cancel statement {statement_id}: {err}")
+                        }
                     }
                 }
             }

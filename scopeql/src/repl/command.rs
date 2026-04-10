@@ -62,8 +62,14 @@ pub struct CommandMode {
 #[derive(Debug, Parser)]
 pub struct CommandTimer {
     /// Enable or disable timing display.
-    #[arg(value_name = "on|off")]
-    pub toggle: String,
+    #[arg(value_enum, value_name = "on|off")]
+    pub toggle: TimerToggle,
+}
+
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+pub enum TimerToggle {
+    On,
+    Off,
 }
 
 #[derive(Debug, Parser)]
@@ -79,13 +85,13 @@ impl CommandCancel {
         let statement_id = match uuid::Uuid::try_parse(statement_id) {
             Ok(statement_id) => statement_id,
             Err(err) => {
-                println!("error: invalid statement id {statement_id:?}: {err}");
+                eprintln!("error: invalid statement id {statement_id:?}: {err}");
                 return;
             }
         };
 
         let Some(client) = client.as_ref() else {
-            println!("error: cancel statement without endpoint");
+            eprintln!("error: cancel statement without endpoint");
             return;
         };
 
@@ -98,7 +104,7 @@ impl CommandCancel {
 
         match output {
             Some(Ok(result)) => println!("{}", serde_json::to_string_pretty(&result).unwrap()),
-            Some(Err(err)) => println!("{err:?}"),
+            Some(Err(err)) => eprintln!("error: failed to cancel statement {statement_id}: {err}"),
             None => println!("interrupted"),
         }
     }

@@ -72,7 +72,7 @@ pub fn load(
         Ok(rows) => rows,
         Err(err) => {
             log::error!("failed to load source data: {err:?}");
-            eprintln!("error: failed to load data: {err:?}");
+            eprintln!("error: failed to load data: {err}");
             std::process::exit(1);
         }
     };
@@ -94,7 +94,7 @@ pub fn load(
         }
         Err(err) => {
             log::error!("load command failed: {err:?}");
-            eprintln!("error: failed to load data: {err:?}");
+            eprintln!("error: failed to load data: {err}");
             std::process::exit(1);
         }
     }

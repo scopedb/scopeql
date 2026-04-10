@@ -171,7 +171,8 @@ fn format_csv(result_set: ResultSet) -> Result<String, Error> {
         output.push('\n');
     }
 
-    Ok(output.trim_end().to_string())
+    trim_trailing_newlines(&mut output);
+    Ok(output)
 }
 
 fn format_jsonl(result_set: ResultSet) -> Result<String, Error> {
@@ -196,7 +197,14 @@ fn format_jsonl(result_set: ResultSet) -> Result<String, Error> {
         writeln!(&mut output, "{line}").unwrap();
     }
 
-    Ok(output.trim_end().to_string())
+    trim_trailing_newlines(&mut output);
+    Ok(output)
+}
+
+fn trim_trailing_newlines(output: &mut String) {
+    while matches!(output.as_bytes().last(), Some(b'\n' | b'\r')) {
+        output.pop();
+    }
 }
 
 fn value_to_json(value: Value) -> serde_json::Value {
@@ -274,5 +282,16 @@ mod tests {
             value_to_json(Value::Object("not json".into())),
             serde_json::json!("not json")
         );
+    }
+
+    #[test]
+    fn trim_trailing_newlines_preserves_trailing_spaces() {
+        let mut output = "value with spaces   \n".to_string();
+        trim_trailing_newlines(&mut output);
+        assert_eq!(output, "value with spaces   ");
+
+        let mut output = "value with tabs\t\r\n".to_string();
+        trim_trailing_newlines(&mut output);
+        assert_eq!(output, "value with tabs\t");
     }
 }

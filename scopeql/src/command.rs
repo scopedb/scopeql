@@ -102,7 +102,7 @@ pub enum Subcommand {
     #[clap(name = "gen")]
     Generate {
         /// Output file path (if not specified, output to stdout).
-        #[clap(short = 'f', long = "file", value_hint = ValueHint::FilePath)]
+        #[clap(short = 'f', long = "file", alias = "output", value_hint = ValueHint::FilePath)]
         output_file: Option<PathBuf>,
 
         /// The target to generate.

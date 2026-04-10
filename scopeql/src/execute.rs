@@ -31,7 +31,7 @@ pub fn execute(config: &Config, args: &Args, stmts: String) {
         Ok(tokens) => tokens,
         Err(err) => {
             log::error!("failed to parse statements: {err:?}");
-            eprintln!("error: failed to parse statements: {err:?}");
+            eprintln!("error: failed to parse statements: {err}");
             std::process::exit(1);
         }
     };
@@ -96,7 +96,7 @@ pub fn execute(config: &Config, args: &Args, stmts: String) {
             }
             Err(err) => {
                 log::error!("statement {id} failed: {err:?}");
-                eprintln!("error: failed to execute statement: {err:?}");
+                eprintln!("error: statement {id} failed: {err}");
                 std::process::exit(1);
             }
         }
