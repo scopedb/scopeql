@@ -61,12 +61,12 @@ fn make_file_history() -> Option<FileBackedHistory> {
     }
 }
 
-pub fn entrypoint(config: &Config, initial_output_format: OutputFormat) {
+pub fn entrypoint(config: &Config) {
     let endpoint = config
         .get_default_connection()
         .expect("no default connection in config");
     let endpoint = endpoint.endpoint().to_owned();
-    let mut output_format = initial_output_format;
+    let mut output_format = OutputFormat::Table;
     let mut show_timer = true;
 
     let mut prompt = CommandLinePrompt::default();

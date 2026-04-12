@@ -4,6 +4,11 @@ All significant changes to this software be documented in this file.
 
 ## Unreleased
 
+### Improvements
+
+* `scopeql run` supports multiple top-level statements again. When you need machine-readable output across multiple statements, use `--quiet`, `--output table`, or `--output jsonl`.
+* `--output` now belongs to `scopeql run`; the REPL starts in `table` mode and can switch formats with `\mode`.
+
 ## v0.4.3 (2026-02-13)
 
 ### Bug Fixes

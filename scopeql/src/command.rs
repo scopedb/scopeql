@@ -14,7 +14,6 @@
 
 use std::path::PathBuf;
 
-use clap::ArgAction;
 use clap::ValueHint;
 
 use crate::load::DataFormat;
@@ -46,10 +45,6 @@ pub struct Args {
     #[clap(long, value_hint = ValueHint::FilePath, value_name = "FILE")]
     pub config_file: Option<PathBuf>,
 
-    /// Output format for query results.
-    #[clap(short = 'o', long, global = true, value_enum, default_value = "table")]
-    pub output: OutputFormat,
-
     /// Suppress normal output.
     #[clap(short, long, alias = "silent", default_value = "false")]
     pub quiet: bool,
@@ -79,12 +74,15 @@ impl OutputFormat {
 pub enum Subcommand {
     /// Run scopeql statements.
     Run {
-        /// The scopeql script file to run.
-        #[clap(group = "input", short, long, value_hint = ValueHint::FilePath, action = ArgAction::Append)]
-        files: Vec<PathBuf>,
-        /// The statements to run.
-        #[clap(group = "input", action = ArgAction::Append)]
-        statements: Vec<String>,
+        /// Output format for query results.
+        #[clap(short = 'o', long, value_enum, default_value = "table")]
+        output: OutputFormat,
+        /// The scopeql script file to run. May contain multiple top-level statements.
+        #[clap(group = "input", short, long, value_hint = ValueHint::FilePath)]
+        file: Option<PathBuf>,
+        /// The statement text to run. Use ';' to separate multiple statements.
+        #[clap(group = "input", value_name = "STATEMENT")]
+        statement: Option<String>,
     },
     /// Perform a load operation of source with transformations.
     Load {

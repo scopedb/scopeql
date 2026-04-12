@@ -227,7 +227,7 @@ fn value_to_json(value: Value) -> serde_json::Value {
 }
 
 fn write_csv_field(output: &mut String, field: &str) {
-    if field.contains(',') || field.contains('"') || field.contains('\n') {
+    if field.contains(',') || field.contains('"') || field.contains('\n') || field.contains('\r') {
         output.push('"');
         for ch in field.chars() {
             if ch == '"' {
@@ -253,6 +253,8 @@ mod tests {
             ("a,b", "\"a,b\""),
             ("say \"hi\"", "\"say \"\"hi\"\"\""),
             ("line1\nline2", "\"line1\nline2\""),
+            ("line1\rline2", "\"line1\rline2\""),
+            ("value\r", "\"value\r\""),
             ("", ""),
         ];
 
@@ -293,5 +295,9 @@ mod tests {
         let mut output = "value with tabs\t\r\n".to_string();
         trim_trailing_newlines(&mut output);
         assert_eq!(output, "value with tabs\t");
+
+        let mut output = "\"value\r\"\n".to_string();
+        trim_trailing_newlines(&mut output);
+        assert_eq!(output, "\"value\r\"");
     }
 }

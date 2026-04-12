@@ -49,32 +49,38 @@ fn main() {
         None => {
             log::info!("starting interactive repl");
             let config = load_config(args.config_file.clone());
-            repl::entrypoint(&config, args.output);
+            repl::entrypoint(&config);
         }
-        Some(Subcommand::Run { files, statements }) => {
-            // command definition ensures exactly one of statement or file is provided
-            debug_assert!(
-                files.is_empty() ^ statements.is_empty(),
-                "files: {files:?}, statements: {statements:?}"
-            );
-
-            log::info!(
-                "running scopeql statements: {} inline, {} file inputs",
-                statements.len(),
-                files.len()
-            );
+        Some(Subcommand::Run {
+            output,
+            file,
+            statement,
+        }) => {
             let config = load_config(args.config_file.clone());
-            for stmt in statements {
-                execute::execute(&config, &args, stmt);
-            }
-            for file in files {
-                match std::fs::read_to_string(&file) {
-                    Ok(content) => execute::execute(&config, &args, content),
+            match (file, statement) {
+                (Some(file), None) => match std::fs::read_to_string(&file) {
+                    Ok(content) => {
+                        log::info!("running scopeql statements from file {}", file.display());
+                        execute::execute(&config, args.quiet, output, content);
+                    }
                     Err(err) => {
                         let file = file.display();
                         log::error!("failed to read script file {file}: {err}");
                         eprintln!("error: failed to read script file {file}: {err}");
+                        std::process::exit(1);
                     }
+                },
+                (None, Some(statement)) => {
+                    log::info!("running scopeql statements from inline input");
+                    execute::execute(&config, args.quiet, output, statement);
+                }
+                (None, None) => {
+                    eprintln!("error: missing input; provide statement text or use -f/--file");
+                    std::process::exit(2);
+                }
+                (Some(_), Some(_)) => {
+                    eprintln!("error: provide either a statement or -f/--file, not both");
+                    std::process::exit(2);
                 }
             }
         }

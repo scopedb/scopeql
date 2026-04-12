@@ -15,20 +15,20 @@
 use scopeql_parser::TokenKind;
 
 use crate::client::ScopeQLClient;
-use crate::command::Args;
+use crate::command::OutputFormat;
 use crate::config::Config;
 use crate::global;
 use crate::tokenizer::run_tokenizer;
 
-pub fn execute(config: &Config, args: &Args, stmts: String) {
+pub fn execute(config: &Config, quiet: bool, output: OutputFormat, stmts: String) {
     let endpoint = config
         .get_default_connection()
         .expect("no default connection in config");
     let endpoint = endpoint.endpoint().to_owned();
     let client = ScopeQLClient::new(endpoint);
 
-    let tokens = match run_tokenizer(&stmts) {
-        Ok(tokens) => tokens,
+    let statements = match top_level_statements(&stmts) {
+        Ok(statements) => statements,
         Err(err) => {
             log::error!("failed to parse statements: {err:?}");
             eprintln!("error: failed to parse statements: {err}");
@@ -36,61 +36,36 @@ pub fn execute(config: &Config, args: &Args, stmts: String) {
         }
     };
 
-    let mut stmts_range = vec![];
-    let mut start = 0;
-    let mut in_transaction = false;
-    let mut in_statement = true;
-
-    for token in &tokens {
-        // transactions
-        match token.kind {
-            TokenKind::BEGIN => in_transaction = true,
-            TokenKind::END => in_transaction = false,
-            _ => {}
-        }
-
-        // semicolons
-        match token.kind {
-            TokenKind::SemiColon => {
-                if in_statement && !in_transaction {
-                    let end = token.span.start;
-                    stmts_range.push(start..end);
-                    start = token.span.end;
-                    in_statement = false;
-                }
-            }
-            _ => {
-                if !in_statement {
-                    start = token.span.start;
-                    in_statement = true;
-                }
-            }
-        }
-    }
-
-    if start < stmts.len() {
-        stmts_range.push(start..stmts.len());
-    }
-
-    if stmts_range.is_empty() {
+    if statements.is_empty() {
         return;
     }
 
-    for range in stmts_range {
-        let stmt = stmts[range].to_string();
+    if statements.len() > 1 && !supports_multi_statement_output(output, quiet) {
+        log::error!(
+            "run command received multiple top-level statements with incompatible output mode {}",
+            output.as_str()
+        );
+        eprintln!(
+            "error: --output {} does not support multiple top-level statements; use --quiet, --output table, --output jsonl, or wrap statements in a transaction",
+            output.as_str()
+        );
+        std::process::exit(2);
+    }
+
+    for stmt in statements {
         let id = uuid::Uuid::now_v7();
         log::info!("executing statement {id}");
 
         match global::rt().block_on(client.execute_statement(
             id,
-            stmt,
-            args.output,
+            stmt.to_string(),
+            output,
             true,
             |_, _| (),
         )) {
             Ok(output) => {
                 log::info!("statement {id} completed successfully");
-                if !args.quiet {
+                if !quiet {
                     println!("{output}");
                 }
             }
@@ -100,5 +75,92 @@ pub fn execute(config: &Config, args: &Args, stmts: String) {
                 std::process::exit(1);
             }
         }
+    }
+}
+
+fn supports_multi_statement_output(output: OutputFormat, quiet: bool) -> bool {
+    quiet || matches!(output, OutputFormat::Table | OutputFormat::Jsonl)
+}
+
+fn top_level_statements<'a>(source: &'a str) -> exn::Result<Vec<&'a str>, crate::Error> {
+    let tokens = run_tokenizer(source)?;
+    let mut statements = vec![];
+    let mut start = 0;
+    let mut in_transaction = false;
+    let mut in_statement = false;
+
+    for token in &tokens {
+        if !in_statement {
+            start = token.span.start;
+            in_statement = true;
+        }
+
+        match token.kind {
+            TokenKind::BEGIN => in_transaction = true,
+            TokenKind::END => in_transaction = false,
+            TokenKind::SemiColon if !in_transaction => {
+                let statement = source[start..token.span.start].trim();
+                if !statement.is_empty() {
+                    statements.push(statement);
+                }
+                in_statement = false;
+            }
+            _ => {}
+        }
+    }
+
+    if in_statement {
+        let statement = source[start..].trim();
+        if !statement.is_empty() {
+            statements.push(statement);
+        }
+    }
+
+    Ok(statements)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::supports_multi_statement_output;
+    use super::top_level_statements;
+    use crate::command::OutputFormat;
+
+    #[test]
+    fn transaction_is_a_single_top_level_statement() {
+        let statements =
+            top_level_statements("BEGIN; INSERT INTO t VALUES (1); INSERT INTO t VALUES (2); END;")
+                .unwrap();
+
+        assert_eq!(
+            statements,
+            vec!["BEGIN; INSERT INTO t VALUES (1); INSERT INTO t VALUES (2); END"]
+        );
+    }
+
+    #[test]
+    fn multiple_top_level_statements_are_detected() {
+        let statements = top_level_statements("SELECT 1; SELECT 2;").unwrap();
+
+        assert_eq!(statements, vec!["SELECT 1", "SELECT 2"]);
+    }
+
+    #[test]
+    fn trailing_whitespace_after_semicolon_is_ignored() {
+        let statements = top_level_statements("SELECT 1;   \n\t").unwrap();
+
+        assert_eq!(statements, vec!["SELECT 1"]);
+    }
+
+    #[test]
+    fn multi_statement_output_policy_allows_table_jsonl_and_quiet() {
+        assert!(supports_multi_statement_output(OutputFormat::Table, false));
+        assert!(supports_multi_statement_output(OutputFormat::Jsonl, false));
+        assert!(supports_multi_statement_output(OutputFormat::Json, true));
+    }
+
+    #[test]
+    fn multi_statement_output_policy_rejects_json_and_csv() {
+        assert!(!supports_multi_statement_output(OutputFormat::Json, false));
+        assert!(!supports_multi_statement_output(OutputFormat::Csv, false));
     }
 }
