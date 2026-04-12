@@ -81,7 +81,7 @@ fn supports_multi_statement_output(output: OutputFormat, quiet: bool) -> bool {
     quiet || matches!(output, OutputFormat::Table | OutputFormat::Jsonl)
 }
 
-fn top_level_statements<'a>(source: &'a str) -> exn::Result<Vec<&'a str>, crate::Error> {
+fn top_level_statements(source: &str) -> exn::Result<Vec<&str>, crate::Error> {
     let tokens = run_tokenizer(source)?;
     let mut statements = vec![];
     let mut start = 0;
