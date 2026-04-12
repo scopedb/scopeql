@@ -12,6 +12,20 @@
 
 `scopeql` provides a command line interface and interactive shell for ScopeDB.
 
+## Configuration
+
+`scopeql` reads its default connection settings from `config.toml`. Each connection can optionally define an API key, which is sent as an `Authorization: Bearer <key>` header on requests.
+
+```toml
+default_connection = "default"
+
+[connections.default]
+endpoint = "https://api.scopedb.example"
+api_key = "your-api-key"
+```
+
+You can also override connection settings with environment variables such as `SCOPEQL_CONFIG_CONNECTIONS_DEFAULT_ENDPOINT` and `SCOPEQL_CONFIG_CONNECTIONS_DEFAULT_API_KEY`.
+
 ## License
 
 This project is licensed under [Apache License, Version 2.0](LICENSE).

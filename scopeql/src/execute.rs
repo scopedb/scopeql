@@ -21,11 +21,10 @@ use crate::global;
 use crate::tokenizer::run_tokenizer;
 
 pub fn execute(config: &Config, quiet: bool, output: OutputFormat, stmts: String) {
-    let endpoint = config
+    let connection = config
         .get_default_connection()
         .expect("no default connection in config");
-    let endpoint = endpoint.endpoint().to_owned();
-    let client = ScopeQLClient::new(endpoint);
+    let client = ScopeQLClient::from_connection(connection);
 
     let statements = match top_level_statements(&stmts) {
         Ok(statements) => statements,

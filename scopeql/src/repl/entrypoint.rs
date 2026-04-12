@@ -62,10 +62,10 @@ fn make_file_history() -> Option<FileBackedHistory> {
 }
 
 pub fn entrypoint(config: &Config) {
-    let endpoint = config
+    let connection = config
         .get_default_connection()
         .expect("no default connection in config");
-    let endpoint = endpoint.endpoint().to_owned();
+    let endpoint = connection.endpoint().to_owned();
     let mut output_format = OutputFormat::Table;
     let mut show_timer = true;
 
@@ -74,7 +74,7 @@ pub fn entrypoint(config: &Config) {
         None
     } else {
         prompt.set_endpoint(Some(endpoint.clone()));
-        Some(ScopeQLClient::new(endpoint))
+        Some(ScopeQLClient::from_connection(connection))
     };
 
     let mut keybindings = default_emacs_keybindings();
@@ -121,7 +121,7 @@ pub fn entrypoint(config: &Config) {
             match cmd.cmd {
                 ReplSubCommand::Connect(connect) => {
                     let endpoint = connect.endpoint;
-                    client = Some(ScopeQLClient::new(endpoint.clone()));
+                    client = Some(ScopeQLClient::new(endpoint.clone(), None));
                     println!("connected to {endpoint}");
                     prompt.set_endpoint(Some(endpoint));
                 }

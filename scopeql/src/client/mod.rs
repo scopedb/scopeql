@@ -33,6 +33,7 @@ use crate::client::protocol::StatementRequest;
 use crate::client::protocol::StatementRequestParams;
 use crate::client::protocol::StatementStatus;
 use crate::command::OutputFormat;
+use crate::config::ConnectionSpec;
 use crate::output::format_result_set;
 
 mod connection;
@@ -45,15 +46,22 @@ pub struct ScopeQLClient {
 }
 
 impl ScopeQLClient {
-    pub fn new(endpoint: String) -> Self {
+    pub fn new(endpoint: String, api_key: Option<String>) -> Self {
         let client = reqwest::ClientBuilder::new()
             .no_proxy()
             .build()
             .expect("failed to create HTTP client");
 
         ScopeQLClient {
-            client: Client::new(endpoint, client).unwrap(),
+            client: Client::new(endpoint, client, api_key).unwrap(),
         }
+    }
+
+    pub fn from_connection(connection: &ConnectionSpec) -> Self {
+        Self::new(
+            connection.endpoint().to_owned(),
+            connection.api_key().map(str::to_owned),
+        )
     }
 
     pub async fn load_jsonlines(

@@ -20,7 +20,7 @@ use crate::command::OutputFormat;
 use crate::global::rt;
 
 #[derive(Debug, Parser)]
-#[command(multicall = true)]
+#[command(multicall = true, disable_help_subcommand = true)]
 pub struct ReplCommand {
     #[command(subcommand)]
     pub cmd: ReplSubCommand,
@@ -117,4 +117,16 @@ pub fn print_repl_help() {
     println!("  \\mode <format>        Set output format (table, json, csv, jsonl)");
     println!("  \\timer on|off         Toggle timing display");
     println!("  \\help                 Show this help message");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn repl_help_subcommand_parses() {
+        let command = ReplCommand::try_parse_from(["help"]).unwrap();
+
+        assert!(matches!(command.cmd, ReplSubCommand::Help));
+    }
 }

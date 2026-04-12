@@ -41,11 +41,10 @@ pub fn load(
     transform: String,
     format: Option<DataFormat>,
 ) {
-    let endpoint = config
+    let connection = config
         .get_default_connection()
         .expect("no default connection in config");
-    let endpoint = endpoint.endpoint().to_owned();
-    let client = ScopeQLClient::new(endpoint);
+    let client = ScopeQLClient::from_connection(connection);
 
     let format = match format {
         Some(format) => format,

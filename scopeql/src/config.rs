@@ -51,53 +51,62 @@ pub fn load_config<P: AsRef<Path>>(config_file: Option<P>) -> Config {
     let mut config = DocumentMut::from_str(&content)
         .unwrap_or_else(|err| panic!("failed to parse config content: {err}"));
 
-    // Layer 1: environment variables
-    let env = std::env::vars()
-        .filter_map(|(k, v)| {
-            let normalized_key = k.trim().to_lowercase();
-            if normalized_key.starts_with("scopeql_config_") {
-                let prefix_len = "scopeql_config_".len();
-                let normalized_key = &normalized_key[prefix_len..];
-                Some((normalized_key.to_owned(), v))
-            } else {
-                None
-            }
-        })
-        .collect::<std::collections::HashMap<_, _>>();
-
-    fn set_toml_path(doc: &mut DocumentMut, parts: &[&str], value: toml_edit::Item) {
-        let mut current = doc.as_item_mut();
-
-        let len = parts.len();
-        assert!(len > 0, "path must not be empty");
-
-        for part in parts.iter().take(len - 1) {
-            current = &mut current[part];
-        }
-
-        current[parts[len - 1]] = value;
-    }
-
-    for (k, v) in env {
-        if k == "default_connection" {
-            let value = toml_edit::value(v);
-            set_toml_path(&mut config, &["default_connection"], value);
-            continue;
-        }
-
-        if k.starts_with("connections_") && k.ends_with("_endpoint") {
-            let prefix_len = "connections_".len();
-            let suffix_len = "_endpoint".len();
-            let name = &k[prefix_len..k.len() - suffix_len];
-            let value = toml_edit::value(v);
-            set_toml_path(&mut config, &["connections", name, "endpoint"], value);
-            continue;
-        }
-
-        log::warn!("ignore unknown environment variable {k} with value {v}");
-    }
+    apply_env_overrides(&mut config, std::env::vars());
 
     Config::deserialize(config.into_deserializer()).expect("failed to deserialize config")
+}
+
+fn apply_env_overrides(config: &mut DocumentMut, env: impl IntoIterator<Item = (String, String)>) {
+    for (key, value) in env {
+        let normalized_key = key.trim().to_lowercase();
+        let Some(path) = normalized_key.strip_prefix("scopeql_config_") else {
+            continue;
+        };
+
+        if path == "default_connection" {
+            set_toml_path(config, &["default_connection"], toml_edit::value(value));
+            continue;
+        }
+
+        if let Some(name) = path
+            .strip_prefix("connections_")
+            .and_then(|path| path.strip_suffix("_endpoint"))
+        {
+            set_toml_path(
+                config,
+                &["connections", name, "endpoint"],
+                toml_edit::value(value),
+            );
+            continue;
+        }
+
+        if let Some(name) = path
+            .strip_prefix("connections_")
+            .and_then(|path| path.strip_suffix("_api_key"))
+        {
+            set_toml_path(
+                config,
+                &["connections", name, "api_key"],
+                toml_edit::value(value),
+            );
+            continue;
+        }
+
+        log::warn!("ignore unknown environment variable {path} with value {value}");
+    }
+}
+
+fn set_toml_path(doc: &mut DocumentMut, parts: &[&str], value: toml_edit::Item) {
+    let mut current = doc.as_item_mut();
+
+    let len = parts.len();
+    assert!(len > 0, "path must not be empty");
+
+    for part in parts.iter().take(len - 1) {
+        current = &mut current[part];
+    }
+
+    current[parts[len - 1]] = value;
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -127,6 +136,7 @@ impl Default for Config {
                 "default".to_string(),
                 ConnectionSpec {
                     endpoint: "http://127.0.0.1:6543".to_string(),
+                    api_key: Some(String::new()),
                 },
             )]),
         }
@@ -136,10 +146,85 @@ impl Default for Config {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ConnectionSpec {
     endpoint: String,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    api_key: Option<String>,
 }
 
 impl ConnectionSpec {
     pub fn endpoint(&self) -> &str {
         &self.endpoint
+    }
+
+    pub fn api_key(&self) -> Option<&str> {
+        self.api_key
+            .as_deref()
+            .filter(|api_key| !api_key.is_empty())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn connection_api_key_ignores_empty_string() {
+        let connection = ConnectionSpec {
+            endpoint: "http://127.0.0.1:6543".to_string(),
+            api_key: Some(String::new()),
+        };
+
+        assert_eq!(connection.api_key(), None);
+    }
+
+    #[test]
+    fn config_deserializes_connection_api_key() {
+        let config: Config = toml::from_str(
+            r#"
+default_connection = "default"
+
+[connections.default]
+endpoint = "http://127.0.0.1:6543"
+api_key = "test-api-key"
+"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            config
+                .get_default_connection()
+                .and_then(ConnectionSpec::api_key),
+            Some("test-api-key")
+        );
+    }
+
+    #[test]
+    fn env_overrides_can_set_connection_api_key() {
+        let content = toml::to_string(&Config::default()).unwrap();
+        let mut doc = DocumentMut::from_str(&content).unwrap();
+
+        apply_env_overrides(
+            &mut doc,
+            [(
+                "SCOPEQL_CONFIG_CONNECTIONS_DEFAULT_API_KEY".to_string(),
+                "test-api-key".to_string(),
+            )],
+        );
+
+        let config = Config::deserialize(doc.into_deserializer()).unwrap();
+        assert_eq!(
+            config
+                .get_default_connection()
+                .and_then(ConnectionSpec::api_key),
+            Some("test-api-key")
+        );
+    }
+
+    #[test]
+    fn default_config_includes_api_key_placeholder() {
+        let content = toml::to_string(&Config::default()).unwrap();
+
+        assert!(content.contains("api_key = \"\""));
     }
 }
