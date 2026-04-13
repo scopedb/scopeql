@@ -115,7 +115,7 @@ fn main() {
         }) => {
             log::info!("starting load command for {}", file.display());
             let config = load_config(args.config_file.clone());
-            load::load(&config, &args, file, transform, format);
+            load::load(&config, args.quiet, file, transform, format);
         }
     }
 }

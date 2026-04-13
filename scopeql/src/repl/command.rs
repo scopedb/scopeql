@@ -20,7 +20,7 @@ use crate::command::OutputFormat;
 use crate::global::rt;
 
 #[derive(Debug, Parser)]
-#[command(multicall = true, disable_help_subcommand = true)]
+#[command(multicall = true)]
 pub struct ReplCommand {
     #[command(subcommand)]
     pub cmd: ReplSubCommand,
@@ -40,9 +40,6 @@ pub enum ReplSubCommand {
     /// Toggle timing display (on/off).
     #[command(name = "timer")]
     Timer(CommandTimer),
-    /// Show available REPL commands.
-    #[command(name = "help")]
-    Help,
 }
 
 #[derive(Debug, Parser)]
@@ -107,26 +104,5 @@ impl CommandCancel {
             Some(Err(err)) => eprintln!("error: failed to cancel statement {statement_id}: {err}"),
             None => println!("interrupted"),
         }
-    }
-}
-
-pub fn print_repl_help() {
-    println!("Available commands:");
-    println!("  \\connect <endpoint>   Connect to a ScopeDB server");
-    println!("  \\cancel <id>          Cancel a running statement");
-    println!("  \\mode <format>        Set output format (table, json, csv, jsonl)");
-    println!("  \\timer on|off         Toggle timing display");
-    println!("  \\help                 Show this help message");
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn repl_help_subcommand_parses() {
-        let command = ReplCommand::try_parse_from(["help"]).unwrap();
-
-        assert!(matches!(command.cmd, ReplSubCommand::Help));
     }
 }

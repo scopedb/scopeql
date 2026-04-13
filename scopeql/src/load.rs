@@ -24,7 +24,6 @@ use exn::ResultExt;
 
 use crate::Error;
 use crate::client::ScopeQLClient;
-use crate::command::Args;
 use crate::config::Config;
 use crate::global;
 
@@ -36,7 +35,7 @@ pub enum DataFormat {
 
 pub fn load(
     config: &Config,
-    args: &Args,
+    quiet: bool,
     file: PathBuf,
     transform: String,
     format: Option<DataFormat>,
@@ -83,7 +82,7 @@ pub fn load(
                 "load completed with {} inserted rows",
                 result.num_rows_inserted
             );
-            if !args.quiet {
+            if !quiet {
                 match result.num_rows_inserted {
                     0 => println!("no rows were inserted"),
                     1 => println!("successfully inserted 1 row"),

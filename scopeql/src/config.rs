@@ -136,7 +136,7 @@ impl Default for Config {
                 "default".to_string(),
                 ConnectionSpec {
                     endpoint: "http://127.0.0.1:6543".to_string(),
-                    api_key: Some(String::new()),
+                    api_key: None,
                 },
             )]),
         }

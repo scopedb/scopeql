@@ -140,7 +140,6 @@ pub fn entrypoint(config: &Config) {
                         println!("timer: off");
                     }
                 },
-                ReplSubCommand::Help => crate::repl::command::print_repl_help(),
             }
             continue;
         }
