@@ -51,6 +51,7 @@ pub fn load_config<P: AsRef<Path>>(config_file: Option<P>) -> Config {
     let mut config = DocumentMut::from_str(&content)
         .unwrap_or_else(|err| panic!("failed to parse config content: {err}"));
 
+    // Layer 1: environment variables
     apply_env_overrides(&mut config, std::env::vars());
 
     Config::deserialize(config.into_deserializer()).expect("failed to deserialize config")

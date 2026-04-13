@@ -52,9 +52,7 @@ pub fn load(
             Some("csv") => DataFormat::Csv,
             _ => {
                 log::error!("unknown data file format: {}", file.display());
-                eprintln!("error: unknown data file format: {}", file.display());
                 log::error!("please specify the format using the --format option");
-                eprintln!("error: please specify the format using the --format option.");
                 std::process::exit(1);
             }
         },
@@ -70,7 +68,6 @@ pub fn load(
         Ok(rows) => rows,
         Err(err) => {
             log::error!("failed to load source data: {err:?}");
-            eprintln!("error: failed to load data: {err}");
             std::process::exit(1);
         }
     };
@@ -92,7 +89,6 @@ pub fn load(
         }
         Err(err) => {
             log::error!("load command failed: {err:?}");
-            eprintln!("error: failed to load data: {err}");
             std::process::exit(1);
         }
     }

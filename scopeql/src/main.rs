@@ -15,12 +15,15 @@
 #![feature(string_from_utf8_lossy_owned)]
 
 use std::num::NonZeroUsize;
-use std::path::PathBuf;
 
 use clap::Parser;
+use logforth::append::Stderr;
 use logforth::append::file::FileBuilder;
 use logforth::filter::env_filter::EnvFilterBuilder;
+use logforth::layout::JsonLayout;
+use logforth::layout::TextLayout;
 
+use crate::command::Args;
 use crate::command::Command;
 use crate::command::GenerateTarget;
 use crate::command::Subcommand;
@@ -42,45 +45,45 @@ mod version;
 fn main() {
     let cmd = Command::parse();
 
-    let args = cmd.args();
-    init_logger();
+    let Args { config_file, quiet } = cmd.args();
+    setup_logs(quiet);
 
     match cmd.subcommand() {
         None => {
             log::info!("starting interactive repl");
-            let config = load_config(args.config_file.clone());
+            let config = load_config(config_file);
             repl::entrypoint(&config);
         }
         Some(Subcommand::Run {
-            output,
+            format,
             file,
             statement,
+            output_file,
         }) => {
-            let config = load_config(args.config_file.clone());
+            let config = load_config(config_file);
             match (file, statement) {
                 (Some(file), None) => match std::fs::read_to_string(&file) {
                     Ok(content) => {
                         log::info!("running scopeql statements from file {}", file.display());
-                        execute::execute(&config, args.quiet, output, content);
+                        execute::execute(&config, quiet, format, content, output_file);
                     }
                     Err(err) => {
                         let file = file.display();
                         log::error!("failed to read script file {file}: {err}");
-                        eprintln!("error: failed to read script file {file}: {err}");
                         std::process::exit(1);
                     }
                 },
                 (None, Some(statement)) => {
                     log::info!("running scopeql statements from inline input");
-                    execute::execute(&config, args.quiet, output, statement);
+                    execute::execute(&config, quiet, format, statement, output_file);
                 }
                 (None, None) => {
-                    eprintln!("error: missing input; provide statement text or use -f/--file");
-                    std::process::exit(2);
+                    log::error!("error: missing input; provide statement text or use -f/--file");
+                    std::process::exit(1);
                 }
                 (Some(_), Some(_)) => {
-                    eprintln!("error: provide either a statement or -f/--file, not both");
-                    std::process::exit(2);
+                    log::error!("error: provide either a statement or -f/--file, not both");
+                    std::process::exit(1);
                 }
             }
         }
@@ -114,38 +117,38 @@ fn main() {
             format,
         }) => {
             log::info!("starting load command for {}", file.display());
-            let config = load_config(args.config_file.clone());
-            load::load(&config, args.quiet, file, transform, format);
+            let config = load_config(config_file);
+            load::load(&config, quiet, file, transform, format);
         }
     }
 }
 
-fn init_logger() {
-    let Some(log_dir) = default_log_dir() else {
-        return;
-    };
+fn setup_logs(quiet: bool) {
+    let mut builder = logforth::starter_log::builder();
 
-    let file = match FileBuilder::new(log_dir, "scopeql")
-        .filename_suffix("log")
-        .rollover_daily()
-        .max_log_files(NonZeroUsize::new(7).expect("non-zero"))
-        .build()
-    {
-        Ok(file) => file,
-        Err(_) => return,
-    };
+    if !quiet {
+        builder = builder.dispatch(|d| {
+            d.filter(EnvFilterBuilder::from_default_env_or("info").build())
+                .append(Stderr::default().with_layout(TextLayout::default()))
+        });
+    }
 
-    let filter = EnvFilterBuilder::from_default_env_or("info").build();
-
-    let _ = logforth::starter_log::builder()
-        .dispatch(|dispatch| dispatch.filter(filter).append(file))
-        .try_apply();
-}
-
-fn default_log_dir() -> Option<PathBuf> {
-    dirs::cache_dir()
+    if let Some(dir) = dirs::cache_dir()
         .map(|dir| dir.join("scopeql").join("logs"))
         .or_else(|| dirs::home_dir().map(|dir| dir.join(".scopeql").join("logs")))
+        && let Ok(append) = FileBuilder::new(dir, "scopeql")
+            .layout(JsonLayout::default())
+            .rollover_daily()
+            .max_log_files(NonZeroUsize::new(7).unwrap())
+            .build()
+    {
+        builder = builder.dispatch(|b| {
+            b.filter(EnvFilterBuilder::from_default_env_or("info").build())
+                .append(append)
+        });
+    }
+
+    let _ = builder.try_apply();
 }
 
 #[derive(Debug)]
