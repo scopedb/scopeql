@@ -52,16 +52,17 @@ fn main() {
             repl::entrypoint(&config);
         }
         Some(Subcommand::Run {
-            output,
+            format,
             file,
             statement,
+            output_file,
         }) => {
             let config = load_config(args.config_file.clone());
             match (file, statement) {
                 (Some(file), None) => match std::fs::read_to_string(&file) {
                     Ok(content) => {
                         log::info!("running scopeql statements from file {}", file.display());
-                        execute::execute(&config, args.quiet, output, content);
+                        execute::execute(&config, args.quiet, format, content, output_file);
                     }
                     Err(err) => {
                         let file = file.display();
@@ -72,15 +73,15 @@ fn main() {
                 },
                 (None, Some(statement)) => {
                     log::info!("running scopeql statements from inline input");
-                    execute::execute(&config, args.quiet, output, statement);
+                    execute::execute(&config, args.quiet, format, statement, output_file);
                 }
                 (None, None) => {
                     eprintln!("error: missing input; provide statement text or use -f/--file");
-                    std::process::exit(2);
+                    std::process::exit(1);
                 }
                 (Some(_), Some(_)) => {
                     eprintln!("error: provide either a statement or -f/--file, not both");
-                    std::process::exit(2);
+                    std::process::exit(1);
                 }
             }
         }

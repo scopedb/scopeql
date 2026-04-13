@@ -88,20 +88,8 @@ impl IngestData {
     }
 }
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum IngestType {
-    #[default]
-    #[serde(rename = "committed")]
-    Committed,
-    #[serde(rename = "buffered")]
-    Buffered,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IngestRequest {
-    #[serde(default)]
-    #[serde(rename = "type")]
-    pub ty: IngestType,
     pub data: IngestData,
     pub statement: String,
 }

@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::fs::OpenOptions;
+use std::io::Write;
+use std::path::PathBuf;
+
 use scopeql_parser::TokenKind;
 
 use crate::client::ScopeQLClient;
@@ -20,7 +24,13 @@ use crate::config::Config;
 use crate::global;
 use crate::tokenizer::run_tokenizer;
 
-pub fn execute(config: &Config, quiet: bool, output: OutputFormat, stmts: String) {
+pub fn execute(
+    config: &Config,
+    quiet: bool,
+    format: OutputFormat,
+    stmts: String,
+    output_file: Option<PathBuf>,
+) {
     let connection = config
         .get_default_connection()
         .expect("no default connection in config");
@@ -39,17 +49,27 @@ pub fn execute(config: &Config, quiet: bool, output: OutputFormat, stmts: String
         return;
     }
 
-    if statements.len() > 1 && !supports_multi_statement_output(output, quiet) {
+    if statements.len() > 1 && !supports_multi_statement_output(format, quiet) {
         log::error!(
             "run command received multiple top-level statements with incompatible output mode {}",
-            output.as_str()
+            format.as_str()
         );
-        eprintln!(
-            "error: --output {} does not support multiple top-level statements; use --quiet, --output table, --output jsonl, or wrap statements in a transaction",
-            output.as_str()
-        );
-        std::process::exit(2);
+        std::process::exit(1);
     }
+
+    let mut output_file = match output_file {
+        Some(output_file) => match OpenOptions::new().open(&output_file) {
+            Ok(file) => Some(file),
+            Err(err) => {
+                log::error!(
+                    "failed to open output file: {}; {err:?}",
+                    output_file.display()
+                );
+                return;
+            }
+        },
+        None => None,
+    };
 
     for stmt in statements {
         let id = uuid::Uuid::now_v7();
@@ -58,13 +78,21 @@ pub fn execute(config: &Config, quiet: bool, output: OutputFormat, stmts: String
         match global::rt().block_on(client.execute_statement(
             id,
             stmt.to_string(),
-            output,
+            format,
             true,
             |_, _| (),
         )) {
             Ok(output) => {
                 log::info!("statement {id} completed successfully");
-                if !quiet {
+                if let Some(ref mut output_file) = output_file {
+                    output_file
+                        .write_all(output.as_bytes())
+                        .unwrap_or_else(|err| {
+                            log::error!(
+                                "failed to write output for statement {id} to file: {err:?}",
+                            );
+                        });
+                } else if !quiet {
                     println!("{output}");
                 }
             }

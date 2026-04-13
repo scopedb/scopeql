@@ -74,12 +74,15 @@ impl OutputFormat {
 pub enum Subcommand {
     /// Run scopeql statements.
     Run {
-        /// Output format for query results.
-        #[clap(short = 'o', long, value_enum, default_value = "table")]
-        output: OutputFormat,
         /// The scopeql script file to run. May contain multiple top-level statements.
         #[clap(group = "input", short, long, value_hint = ValueHint::FilePath)]
         file: Option<PathBuf>,
+        /// Output format for query results.
+        #[clap(long, value_enum, default_value = "table")]
+        format: OutputFormat,
+        /// Write output to `<file>` instead of stdout.
+        #[clap(short = 'o', long = "output", value_name = "file", value_hint = ValueHint::FilePath)]
+        output_file: Option<PathBuf>,
         /// The statement text to run. Use ';' to separate multiple statements.
         #[clap(group = "input", value_name = "STATEMENT")]
         statement: Option<String>,
@@ -99,8 +102,8 @@ pub enum Subcommand {
     /// Generate command-line interface utilities.
     #[clap(name = "gen")]
     Generate {
-        /// Output file path (if not specified, output to stdout).
-        #[clap(short = 'o', long = "output-file", alias = "output", value_hint = ValueHint::FilePath)]
+        /// Write output to `<file>` instead of stdout.
+        #[clap(short = 'o', long = "output", value_name = "file", value_hint = ValueHint::FilePath)]
         output_file: Option<PathBuf>,
 
         /// The target to generate.

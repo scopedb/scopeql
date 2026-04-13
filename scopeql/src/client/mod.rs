@@ -24,7 +24,6 @@ use crate::client::connection::Client;
 use crate::client::protocol::IngestData;
 use crate::client::protocol::IngestRequest;
 use crate::client::protocol::IngestResult;
-use crate::client::protocol::IngestType;
 use crate::client::protocol::Response;
 use crate::client::protocol::ResultFormat;
 use crate::client::protocol::StatementCancelResult;
@@ -76,7 +75,6 @@ impl ScopeQLClient {
         match self
             .client
             .ingest(IngestRequest {
-                ty: IngestType::Committed,
                 data,
                 statement: transform.clone(),
             })
