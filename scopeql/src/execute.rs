@@ -57,7 +57,11 @@ pub fn execute(
     }
 
     let mut output_file = match output_file {
-        Some(output_file) => match OpenOptions::new().open(&output_file) {
+        Some(output_file) => match OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(&output_file)
+        {
             Ok(file) => Some(file),
             Err(err) => {
                 log::error!(
