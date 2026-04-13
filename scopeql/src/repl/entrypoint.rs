@@ -100,11 +100,11 @@ pub fn entrypoint(config: &Config) {
     loop {
         let input = state.read_line(&prompt).expect("failed to read next line");
         let input = match input {
-            Signal::CtrlC | Signal::CtrlD => {
+            Signal::Success(input) => input,
+            Signal::CtrlC | Signal::CtrlD | Signal::ExternalBreak(_) | _ => {
                 println!("Exit");
                 break;
             }
-            Signal::Success(input) => input,
         };
         let input = input.trim();
 
