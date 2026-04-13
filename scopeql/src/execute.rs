@@ -40,7 +40,6 @@ pub fn execute(
         Ok(statements) => statements,
         Err(err) => {
             log::error!("failed to parse statements: {err:?}");
-            eprintln!("error: failed to parse statements: {err}");
             std::process::exit(1);
         }
     };
@@ -98,7 +97,6 @@ pub fn execute(
             }
             Err(err) => {
                 log::error!("statement {id} failed: {err:?}");
-                eprintln!("error: statement {id} failed: {err}");
                 std::process::exit(1);
             }
         }
