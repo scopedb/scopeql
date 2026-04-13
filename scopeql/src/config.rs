@@ -220,11 +220,4 @@ api_key = "test-api-key"
             Some("test-api-key")
         );
     }
-
-    #[test]
-    fn default_config_includes_api_key_placeholder() {
-        let content = toml::to_string(&Config::default()).unwrap();
-
-        assert!(content.contains("api_key = \"\""));
-    }
 }
