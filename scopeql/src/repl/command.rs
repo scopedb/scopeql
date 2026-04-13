@@ -16,6 +16,7 @@ use clap::Parser;
 use clap::Subcommand;
 
 use crate::client::ScopeQLClient;
+use crate::command::OutputFormat;
 use crate::global::rt;
 
 #[derive(Debug, Parser)]
@@ -33,6 +34,12 @@ pub enum ReplSubCommand {
     /// Connect to another ScopeDB server.
     #[command(name = "connect")]
     Connect(CommandConnect),
+    /// Set output format (table, json, csv, jsonl).
+    #[command(name = "mode")]
+    Mode(CommandMode),
+    /// Toggle timing display (on/off).
+    #[command(name = "timer")]
+    Timer(CommandTimer),
 }
 
 #[derive(Debug, Parser)]
@@ -40,6 +47,26 @@ pub struct CommandConnect {
     /// The endpoint of the server to connect to.
     #[arg(value_name = "ENDPOINT")]
     pub endpoint: String,
+}
+
+#[derive(Debug, Parser)]
+pub struct CommandMode {
+    /// The output format to use.
+    #[arg(value_enum, value_name = "FORMAT")]
+    pub format: OutputFormat,
+}
+
+#[derive(Debug, Parser)]
+pub struct CommandTimer {
+    /// Enable or disable timing display.
+    #[arg(value_enum, value_name = "on|off")]
+    pub toggle: TimerToggle,
+}
+
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+pub enum TimerToggle {
+    On,
+    Off,
 }
 
 #[derive(Debug, Parser)]
@@ -55,13 +82,13 @@ impl CommandCancel {
         let statement_id = match uuid::Uuid::try_parse(statement_id) {
             Ok(statement_id) => statement_id,
             Err(err) => {
-                println!("error: invalid statement id {statement_id:?}: {err}");
+                eprintln!("error: invalid statement id {statement_id:?}: {err}");
                 return;
             }
         };
 
         let Some(client) = client.as_ref() else {
-            println!("error: cancel statement without endpoint");
+            eprintln!("error: cancel statement without endpoint");
             return;
         };
 
@@ -74,7 +101,7 @@ impl CommandCancel {
 
         match output {
             Some(Ok(result)) => println!("{}", serde_json::to_string_pretty(&result).unwrap()),
-            Some(Err(err)) => println!("{err:?}"),
+            Some(Err(err)) => eprintln!("error: failed to cancel statement {statement_id}: {err}"),
             None => println!("interrupted"),
         }
     }

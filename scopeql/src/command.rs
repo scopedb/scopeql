@@ -14,7 +14,6 @@
 
 use std::path::PathBuf;
 
-use clap::ArgAction;
 use clap::ValueHint;
 
 use crate::load::DataFormat;
@@ -51,16 +50,39 @@ pub struct Args {
     pub quiet: bool,
 }
 
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub enum OutputFormat {
+    #[default]
+    Table,
+    Json,
+    Csv,
+    Jsonl,
+}
+
+impl OutputFormat {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Table => "table",
+            Self::Json => "json",
+            Self::Csv => "csv",
+            Self::Jsonl => "jsonl",
+        }
+    }
+}
+
 #[derive(Debug, Clone, clap::Subcommand)]
 pub enum Subcommand {
     /// Run scopeql statements.
     Run {
-        /// The scopeql script file to run.
-        #[clap(group = "input", short, long, value_hint = ValueHint::FilePath, action = ArgAction::Append)]
-        files: Vec<PathBuf>,
-        /// The statements to run.
-        #[clap(group = "input", action = ArgAction::Append)]
-        statements: Vec<String>,
+        /// Output format for query results.
+        #[clap(short = 'o', long, value_enum, default_value = "table")]
+        output: OutputFormat,
+        /// The scopeql script file to run. May contain multiple top-level statements.
+        #[clap(group = "input", short, long, value_hint = ValueHint::FilePath)]
+        file: Option<PathBuf>,
+        /// The statement text to run. Use ';' to separate multiple statements.
+        #[clap(group = "input", value_name = "STATEMENT")]
+        statement: Option<String>,
     },
     /// Perform a load operation of source with transformations.
     Load {
@@ -78,8 +100,8 @@ pub enum Subcommand {
     #[clap(name = "gen")]
     Generate {
         /// Output file path (if not specified, output to stdout).
-        #[clap(short, long, value_hint = ValueHint::FilePath)]
-        output: Option<PathBuf>,
+        #[clap(short = 'o', long = "output-file", alias = "output", value_hint = ValueHint::FilePath)]
+        output_file: Option<PathBuf>,
 
         /// The target to generate.
         #[clap(value_enum)]

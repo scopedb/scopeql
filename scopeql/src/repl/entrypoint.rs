@@ -34,10 +34,12 @@ use reedline::default_emacs_keybindings;
 use scopeql_parser::TokenKind;
 
 use crate::client::ScopeQLClient;
+use crate::command::OutputFormat;
 use crate::config::Config;
 use crate::global;
 use crate::repl::command::ReplCommand;
 use crate::repl::command::ReplSubCommand;
+use crate::repl::command::TimerToggle;
 use crate::repl::highlight::ScopeQLHighlighter;
 use crate::repl::prompt::CommandLinePrompt;
 use crate::repl::validate::ScopeQLValidator;
@@ -50,22 +52,29 @@ fn make_file_history() -> Option<FileBackedHistory> {
     };
 
     let history_file = home_dir.join(".scopeql_history");
-    let history = FileBackedHistory::with_file(1000, history_file).unwrap();
-    Some(history)
+    match FileBackedHistory::with_file(1000, history_file) {
+        Ok(history) => Some(history),
+        Err(err) => {
+            eprintln!("warning: cannot open history file: {err}");
+            None
+        }
+    }
 }
 
 pub fn entrypoint(config: &Config) {
-    let endpoint = config
+    let connection = config
         .get_default_connection()
         .expect("no default connection in config");
-    let endpoint = endpoint.endpoint().to_owned();
+    let endpoint = connection.endpoint().to_owned();
+    let mut output_format = OutputFormat::Table;
+    let mut show_timer = true;
 
     let mut prompt = CommandLinePrompt::default();
     let mut client = if endpoint.is_empty() {
         None
     } else {
         prompt.set_endpoint(Some(endpoint.clone()));
-        Some(ScopeQLClient::new(endpoint))
+        Some(ScopeQLClient::from_connection(connection))
     };
 
     let mut keybindings = default_emacs_keybindings();
@@ -104,7 +113,7 @@ pub fn entrypoint(config: &Config) {
             let cmd = match ReplCommand::try_parse_from(input.split_whitespace()) {
                 Ok(cmd) => cmd,
                 Err(err) => {
-                    println!("{err}");
+                    eprintln!("{err}");
                     continue;
                 }
             };
@@ -112,11 +121,25 @@ pub fn entrypoint(config: &Config) {
             match cmd.cmd {
                 ReplSubCommand::Connect(connect) => {
                     let endpoint = connect.endpoint;
-                    client = Some(ScopeQLClient::new(endpoint.clone()));
+                    client = Some(ScopeQLClient::new(endpoint.clone(), None));
                     println!("connected to {endpoint}");
                     prompt.set_endpoint(Some(endpoint));
                 }
                 ReplSubCommand::Cancel(cancel) => cancel.run(client.as_ref()),
+                ReplSubCommand::Mode(mode) => {
+                    output_format = mode.format;
+                    println!("output format: {}", output_format.as_str());
+                }
+                ReplSubCommand::Timer(timer) => match timer.toggle {
+                    TimerToggle::On => {
+                        show_timer = true;
+                        println!("timer: on");
+                    }
+                    TimerToggle::Off => {
+                        show_timer = false;
+                        println!("timer: off");
+                    }
+                },
             }
             continue;
         }
@@ -124,7 +147,7 @@ pub fn entrypoint(config: &Config) {
         let tokens = match run_tokenizer(input) {
             Ok(tokens) => tokens,
             Err(err) => {
-                println!("{err:?}");
+                eprintln!("{err}");
                 continue;
             }
         };
@@ -163,7 +186,7 @@ pub fn entrypoint(config: &Config) {
 
         let outstanding = input[start..].trim_start();
         let Some(client) = client.as_ref() else {
-            println!("error: execute statements without endpoint");
+            eprintln!("error: execute statements without endpoint");
             continue;
         };
 
@@ -192,17 +215,23 @@ pub fn entrypoint(config: &Config) {
             let output = global::rt().block_on({
                 let pb = pb.clone();
                 async move {
-                    let fut = client.execute_statement(statement_id, stmt, |status, progress| {
-                        pb.set_message(status.to_string());
-                        if progress.details.total_uncompressed_bytes > 0 {
-                            pb.set_length(progress.details.total_uncompressed_bytes as u64);
-                            pb.set_position(
-                                (progress.details.total_percentage() / 100.0
-                                    * progress.details.total_uncompressed_bytes as f64)
-                                    as u64,
-                            );
-                        }
-                    });
+                    let fut = client.execute_statement(
+                        statement_id,
+                        stmt,
+                        output_format,
+                        show_timer,
+                        |status, progress| {
+                            pb.set_message(status.to_string());
+                            if progress.details.total_uncompressed_bytes > 0 {
+                                pb.set_length(progress.details.total_uncompressed_bytes as u64);
+                                pb.set_position(
+                                    (progress.details.total_percentage() / 100.0
+                                        * progress.details.total_uncompressed_bytes as f64)
+                                        as u64,
+                                );
+                            }
+                        },
+                    );
 
                     tokio::select! {
                         _ = tokio::signal::ctrl_c() => None,
@@ -216,12 +245,14 @@ pub fn entrypoint(config: &Config) {
 
             match output {
                 Some(Ok(output)) => println!("{output}"),
-                Some(Err(err)) => println!("{err:?}"),
+                Some(Err(err)) => eprintln!("error: statement {statement_id} failed: {err}"),
                 None => {
                     let output = global::rt().block_on(client.cancel_statement(statement_id));
                     match output {
-                        Ok(_) => println!("Statement {statement_id} has ben cancelled"),
-                        Err(err) => println!("{err:?}"),
+                        Ok(_) => println!("Statement {statement_id} has been cancelled"),
+                        Err(err) => {
+                            eprintln!("error: failed to cancel statement {statement_id}: {err}")
+                        }
                     }
                 }
             }

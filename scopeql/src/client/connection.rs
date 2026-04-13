@@ -15,6 +15,9 @@
 use fastrace_reqwest::traceparent_headers;
 use reqwest::IntoUrl;
 use reqwest::Url;
+use reqwest::header::AUTHORIZATION;
+use reqwest::header::HeaderMap;
+use reqwest::header::HeaderValue;
 use uuid::Uuid;
 
 use crate::Error;
@@ -30,12 +33,30 @@ use crate::client::protocol::StatementStatus;
 pub struct Client {
     endpoint: Url,
     client: reqwest::Client,
+    authorization: Option<HeaderValue>,
 }
 
 impl Client {
-    pub fn new<E: IntoUrl>(endpoint: E, client: reqwest::Client) -> Result<Self, Error> {
+    pub fn new<E: IntoUrl>(
+        endpoint: E,
+        client: reqwest::Client,
+        api_key: Option<String>,
+    ) -> Result<Self, Error> {
+        let authorization = match api_key.filter(|api_key| !api_key.is_empty()) {
+            Some(api_key) => Some(HeaderValue::from_str(&format!("Bearer {api_key}")).map_err(
+                |err| {
+                    Error::new("failed to build authorization header".to_string()).set_source(err)
+                },
+            )?),
+            None => None,
+        };
+
         match endpoint.into_url() {
-            Ok(endpoint) => Ok(Self { endpoint, client }),
+            Ok(endpoint) => Ok(Self {
+                endpoint,
+                client,
+                authorization,
+            }),
             Err(err) => Err(Error::new("failed to parse endpoint".to_string()).set_source(err)),
         }
     }
@@ -49,7 +70,7 @@ impl Client {
         let response = self
             .client
             .post(url)
-            .headers(traceparent_headers())
+            .headers(self.request_headers())
             .json(&request)
             .send()
             .await
@@ -70,7 +91,7 @@ impl Client {
         let response = self
             .client
             .get(url)
-            .headers(traceparent_headers())
+            .headers(self.request_headers())
             .query(&params)
             .send()
             .await
@@ -90,7 +111,7 @@ impl Client {
         let response = self
             .client
             .post(url)
-            .headers(traceparent_headers())
+            .headers(self.request_headers())
             .send()
             .await
             .map_err(|err| {
@@ -106,7 +127,7 @@ impl Client {
         let response = self
             .client
             .post(url)
-            .headers(traceparent_headers())
+            .headers(self.request_headers())
             .json(&request)
             .send()
             .await
@@ -121,5 +142,39 @@ impl Client {
         self.endpoint
             .join(path)
             .map_err(|err| Error::new("failed to construct URL".to_string()).set_source(err))
+    }
+
+    fn request_headers(&self) -> HeaderMap {
+        let mut headers = traceparent_headers();
+        if let Some(authorization) = &self.authorization {
+            headers.insert(AUTHORIZATION, authorization.clone());
+        }
+        headers
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn request_headers_include_bearer_token() {
+        let client = Client::new(
+            "http://127.0.0.1:6543",
+            reqwest::Client::new(),
+            Some("test-api-key".to_string()),
+        )
+        .unwrap();
+
+        let headers = client.request_headers();
+        assert_eq!(headers.get(AUTHORIZATION).unwrap(), "Bearer test-api-key");
+    }
+
+    #[test]
+    fn request_headers_omit_authorization_without_api_key() {
+        let client = Client::new("http://127.0.0.1:6543", reqwest::Client::new(), None).unwrap();
+
+        let headers = client.request_headers();
+        assert!(headers.get(AUTHORIZATION).is_none());
     }
 }

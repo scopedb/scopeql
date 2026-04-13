@@ -17,8 +17,6 @@ use std::time::Duration;
 use exn::Result;
 use exn::ResultExt;
 use exn::bail;
-use jiff::SignedDuration;
-use nu_ansi_term::Color;
 use uuid::Uuid;
 
 use crate::Error;
@@ -34,99 +32,36 @@ use crate::client::protocol::StatementEstimatedProgress;
 use crate::client::protocol::StatementRequest;
 use crate::client::protocol::StatementRequestParams;
 use crate::client::protocol::StatementStatus;
-use crate::client::result::ResultSet;
-use crate::client::result::Value;
-use crate::pretty::pretty_print;
+use crate::command::OutputFormat;
+use crate::config::ConnectionSpec;
+use crate::output::format_result_set;
 
 mod connection;
-mod protocol;
-mod result;
+pub(crate) mod protocol;
+pub(crate) mod result;
 
 #[derive(Debug)]
 pub struct ScopeQLClient {
     client: Client,
 }
 
-fn format_result_set(
-    result_set: ResultSet,
-    duration: SignedDuration,
-    progress: StatementEstimatedProgress,
-) -> Result<String, Error> {
-    let num_rows = match result_set.num_rows() {
-        n @ 0..=1 => format!("({n} row)"),
-        n => format!("({n} rows)"),
-    };
-
-    let header = result_set
-        .schema()
-        .fields()
-        .iter()
-        .map(|f| f.name().to_string())
-        .collect::<Vec<_>>();
-
-    let rows = result_set
-        .into_values()
-        .or_raise(|| Error::new("failed to convert result rows".to_string()))?;
-
-    // @see https://docs.rs/comfy-table/7.1.3/comfy_table/presets/index.html
-    const TABLE_STYLE_PRESET: &str = "||--+-++|    ++++++";
-    let mut table = comfy_table::Table::new();
-    table.load_preset(TABLE_STYLE_PRESET);
-    table.set_header(header);
-    for row in rows {
-        let row = row
-            .into_iter()
-            .map(|v| match v {
-                Value::Null
-                | Value::Int(_)
-                | Value::UInt(_)
-                | Value::Float(_)
-                | Value::Timestamp(_)
-                | Value::Interval(_)
-                | Value::Boolean(_)
-                | Value::Binary(_) => v.to_string(),
-                Value::String(s) => s,
-                Value::Array(s) | Value::Object(s) | Value::Any(s) => {
-                    const MAX_COMPACT_LEN: usize = 64;
-                    if s.len() > MAX_COMPACT_LEN {
-                        pretty_print(&s)
-                    } else {
-                        s
-                    }
-                }
-            })
-            .collect::<Vec<_>>();
-        table.add_row(row);
-    }
-
-    let queue_secs =
-        SignedDuration::from_nanos(progress.nanos_from_submitted - progress.nanos_from_started);
-    let run_secs = SignedDuration::from_nanos(progress.nanos_from_started);
-    let total_secs = duration;
-
-    let queue_secs = Color::LightCyan.paint(format!("{:.3}s", queue_secs.as_secs_f64()));
-    let run_secs = Color::LightCyan.paint(format!("{:.3}s", run_secs.as_secs_f64()));
-    let total_secs = Color::LightCyan.paint(format!("{:.3}s", total_secs.as_secs_f64()));
-
-    let queue = Color::LightGreen.paint("queue");
-    let run = Color::LightGreen.paint("run");
-    let total = Color::LightGreen.paint("total");
-
-    Ok(format!(
-        "{table}\n{num_rows}\ntime: {queue_secs} {queue} {run_secs} {run} {total_secs} {total}",
-    ))
-}
-
 impl ScopeQLClient {
-    pub fn new(endpoint: String) -> Self {
+    pub fn new(endpoint: String, api_key: Option<String>) -> Self {
         let client = reqwest::ClientBuilder::new()
             .no_proxy()
             .build()
             .expect("failed to create HTTP client");
 
         ScopeQLClient {
-            client: Client::new(endpoint, client).unwrap(),
+            client: Client::new(endpoint, client, api_key).unwrap(),
         }
+    }
+
+    pub fn from_connection(connection: &ConnectionSpec) -> Self {
+        Self::new(
+            connection.endpoint().to_owned(),
+            connection.api_key().map(str::to_owned),
+        )
     }
 
     pub async fn load_jsonlines(
@@ -159,6 +94,8 @@ impl ScopeQLClient {
         &self,
         statement_id: Uuid,
         statement: String,
+        output_format: OutputFormat,
+        show_timing: bool,
         display_progress: impl Fn(&'static str, StatementEstimatedProgress),
     ) -> Result<String, Error> {
         let make_error = || {
@@ -199,13 +136,19 @@ impl ScopeQLClient {
                 }
                 StatementStatus::Finished(s) => {
                     let elapsed = start_time.duration_until(jiff::Timestamp::now());
-                    return format_result_set(s.result_set(), elapsed, s.progress.clone());
+                    return format_result_set(
+                        s.result_set(),
+                        elapsed,
+                        s.progress.clone(),
+                        output_format,
+                        show_timing,
+                    );
                 }
                 StatementStatus::Failed(s) => {
-                    return Ok(s.message.clone());
+                    bail!(Error::new(format!("statement failed: {}", s.message)));
                 }
                 StatementStatus::Cancelled(s) => {
-                    return Ok(s.message.clone());
+                    bail!(Error::new(format!("statement cancelled: {}", s.message)));
                 }
             }
 

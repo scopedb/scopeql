@@ -33,12 +33,17 @@ pub enum DataFormat {
     Json,
 }
 
-pub fn load(config: &Config, file: PathBuf, transform: String, format: Option<DataFormat>) {
-    let endpoint = config
+pub fn load(
+    config: &Config,
+    quiet: bool,
+    file: PathBuf,
+    transform: String,
+    format: Option<DataFormat>,
+) {
+    let connection = config
         .get_default_connection()
         .expect("no default connection in config");
-    let endpoint = endpoint.endpoint().to_owned();
-    let client = ScopeQLClient::new(endpoint);
+    let client = ScopeQLClient::from_connection(connection);
 
     let format = match format {
         Some(format) => format,
@@ -47,11 +52,14 @@ pub fn load(config: &Config, file: PathBuf, transform: String, format: Option<Da
             Some("csv") => DataFormat::Csv,
             _ => {
                 log::error!("unknown data file format: {}", file.display());
-                log::error!("Please specify the format using the --format option.");
+                eprintln!("error: unknown data file format: {}", file.display());
+                log::error!("please specify the format using the --format option");
+                eprintln!("error: please specify the format using the --format option.");
                 std::process::exit(1);
             }
         },
     };
+    log::info!("loading {} as {:?}", file.display(), format);
 
     let content = match format {
         DataFormat::Csv => load_csv_data(file),
@@ -61,20 +69,30 @@ pub fn load(config: &Config, file: PathBuf, transform: String, format: Option<Da
     let data = match content {
         Ok(rows) => rows,
         Err(err) => {
-            log::error!("failed to load data: {err:?}");
+            log::error!("failed to load source data: {err:?}");
+            eprintln!("error: failed to load data: {err}");
             std::process::exit(1);
         }
     };
 
     let result = global::rt().block_on(client.load_jsonlines(data, transform));
     match result {
-        Ok(result) => match result.num_rows_inserted {
-            0 => log::info!("no rows were inserted"),
-            1 => log::info!("successfully inserted 1 row"),
-            n => log::info!("successfully inserted {n} rows"),
-        },
+        Ok(result) => {
+            log::info!(
+                "load completed with {} inserted rows",
+                result.num_rows_inserted
+            );
+            if !quiet {
+                match result.num_rows_inserted {
+                    0 => println!("no rows were inserted"),
+                    1 => println!("successfully inserted 1 row"),
+                    n => println!("successfully inserted {n} rows"),
+                }
+            }
+        }
         Err(err) => {
-            log::error!("failed to load data: {err:?}");
+            log::error!("load command failed: {err:?}");
+            eprintln!("error: failed to load data: {err}");
             std::process::exit(1);
         }
     }
