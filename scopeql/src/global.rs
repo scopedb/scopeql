@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::fmt::Arguments;
 use std::sync::LazyLock;
 
 use tokio::runtime::Builder;
@@ -27,4 +28,10 @@ pub fn rt() -> &'static Runtime {
     });
 
     &RT
+}
+
+#[track_caller]
+pub fn eprintln_and_error(args: Arguments<'_>) {
+    eprintln!("error: {args}");
+    log::error!("{args}");
 }

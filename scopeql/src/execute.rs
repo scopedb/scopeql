@@ -22,6 +22,7 @@ use crate::client::ScopeQLClient;
 use crate::command::OutputFormat;
 use crate::config::Config;
 use crate::global;
+use crate::global::eprintln_and_error;
 use crate::tokenizer::run_tokenizer;
 
 pub fn execute(
@@ -39,7 +40,7 @@ pub fn execute(
     let statements = match top_level_statements(&stmts) {
         Ok(statements) => statements,
         Err(err) => {
-            log::error!("failed to parse statements: {err:?}");
+            eprintln_and_error(format_args!("failed to parse statements: {err:?}"));
             std::process::exit(1);
         }
     };
@@ -51,6 +52,10 @@ pub fn execute(
     if statements.len() > 1 && !supports_multi_statement_output(format, quiet) {
         log::error!(
             "run command received multiple top-level statements with incompatible output mode {}",
+            format.as_str()
+        );
+        eprintln!(
+            "error: --format {} does not support multiple top-level statements; use --quiet, --format table, --format jsonl, or wrap statements in a transaction",
             format.as_str()
         );
         std::process::exit(1);
@@ -100,7 +105,7 @@ pub fn execute(
                 }
             }
             Err(err) => {
-                log::error!("statement {id} failed: {err:?}");
+                eprintln_and_error(format_args!("statement {id} failed: {err:?}"));
                 std::process::exit(1);
             }
         }

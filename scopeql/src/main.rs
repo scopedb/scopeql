@@ -17,11 +17,9 @@
 use std::num::NonZeroUsize;
 
 use clap::Parser;
-use logforth::append::Stderr;
 use logforth::append::file::FileBuilder;
 use logforth::filter::env_filter::EnvFilterBuilder;
 use logforth::layout::JsonLayout;
-use logforth::layout::TextLayout;
 
 use crate::command::Args;
 use crate::command::Command;
@@ -29,6 +27,7 @@ use crate::command::GenerateTarget;
 use crate::command::Subcommand;
 use crate::config::Config;
 use crate::config::load_config;
+use crate::global::eprintln_and_error;
 
 mod client;
 mod command;
@@ -46,7 +45,7 @@ fn main() {
     let cmd = Command::parse();
 
     let Args { config_file, quiet } = cmd.args();
-    setup_logs(quiet);
+    setup_logger();
 
     match cmd.subcommand() {
         None => {
@@ -69,7 +68,9 @@ fn main() {
                     }
                     Err(err) => {
                         let file = file.display();
-                        log::error!("failed to read script file {file}: {err}");
+                        eprintln_and_error(format_args!(
+                            "failed to read script file {file}: {err}"
+                        ));
                         std::process::exit(1);
                     }
                 },
@@ -78,11 +79,11 @@ fn main() {
                     execute::execute(&config, quiet, format, statement, output_file);
                 }
                 (None, None) => {
-                    log::error!("error: missing input; provide statement text or use -f/--file");
+                    eprintln!("error: missing input; provide statement text or use -f/--file");
                     std::process::exit(1);
                 }
                 (Some(_), Some(_)) => {
-                    log::error!("error: provide either a statement or -f/--file, not both");
+                    eprintln!("error: provide either a statement or -f/--file, not both");
                     std::process::exit(1);
                 }
             }
@@ -123,32 +124,29 @@ fn main() {
     }
 }
 
-fn setup_logs(quiet: bool) {
-    let mut builder = logforth::starter_log::builder();
-
-    if !quiet {
-        builder = builder.dispatch(|d| {
-            d.filter(EnvFilterBuilder::from_default_env_or("info").build())
-                .append(Stderr::default().with_layout(TextLayout::default()))
-        });
-    }
-
-    if let Some(dir) = dirs::cache_dir()
+fn setup_logger() {
+    let Some(log_dir) = dirs::cache_dir()
         .map(|dir| dir.join("scopeql").join("logs"))
         .or_else(|| dirs::home_dir().map(|dir| dir.join(".scopeql").join("logs")))
-        && let Ok(append) = FileBuilder::new(dir, "scopeql")
-            .layout(JsonLayout::default())
-            .rollover_daily()
-            .max_log_files(NonZeroUsize::new(7).unwrap())
-            .build()
-    {
-        builder = builder.dispatch(|b| {
+    else {
+        return;
+    };
+
+    let Ok(append) = FileBuilder::new(log_dir, "scopeql")
+        .layout(JsonLayout::default())
+        .rollover_daily()
+        .max_log_files(NonZeroUsize::new(7).unwrap())
+        .build()
+    else {
+        return;
+    };
+
+    logforth::starter_log::builder()
+        .dispatch(|b| {
             b.filter(EnvFilterBuilder::from_default_env_or("info").build())
                 .append(append)
-        });
-    }
-
-    let _ = builder.try_apply();
+        })
+        .apply();
 }
 
 #[derive(Debug)]
