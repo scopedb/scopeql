@@ -4,6 +4,8 @@ All significant changes to this software be documented in this file.
 
 ## Unreleased
 
+## v0.5.0 (2026-04-14)
+
 ### Breaking Changes
 
 * Disallow changing connection in REPL (`\connect` is dropped). To connect to another ScopeDB instance, start a new REPL session.
