@@ -39,7 +39,7 @@ use crate::config::Config;
 use crate::global;
 use crate::repl::command::ReplCommand;
 use crate::repl::command::ReplSubCommand;
-use crate::repl::command::TimerToggle;
+use crate::repl::command::TimerMode;
 use crate::repl::highlight::ScopeQLHighlighter;
 use crate::repl::prompt::CommandLinePrompt;
 use crate::repl::validate::ScopeQLValidator;
@@ -121,16 +121,19 @@ pub fn entrypoint(config: &Config) {
 
             match cmd.cmd {
                 ReplSubCommand::Cancel(cancel) => cancel.run(&client),
-                ReplSubCommand::Mode(mode) => {
-                    output_format = mode.format;
+                ReplSubCommand::Format(format) => {
+                    output_format = format.format;
                     println!("output format: {}", output_format.as_str());
                 }
-                ReplSubCommand::Timer(timer) => match timer.toggle {
-                    TimerToggle::On => {
+                ReplSubCommand::Timer(timer) => match timer.mode {
+                    None => {
+                        println!("timer: {}", if show_timer { "on" } else { "off" });
+                    }
+                    Some(TimerMode::On) => {
                         show_timer = true;
                         println!("timer: on");
                     }
-                    TimerToggle::Off => {
+                    Some(TimerMode::Off) => {
                         show_timer = false;
                         println!("timer: off");
                     }

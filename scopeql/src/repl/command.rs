@@ -29,18 +29,18 @@ pub struct ReplCommand {
 #[derive(Debug, Subcommand)]
 pub enum ReplSubCommand {
     /// Cancel the statement with the given ID.
-    #[command(name = "cancel")]
+    #[command(name = "cancel", display_name = "\\cancel")]
     Cancel(CommandCancel),
     /// Set output format (table, json, csv, jsonl).
-    #[command(name = "mode")]
-    Mode(CommandMode),
+    #[command(name = "format", display_name = "\\format")]
+    Format(CommandFormat),
     /// Toggle timing display (on/off).
-    #[command(name = "timer")]
+    #[command(name = "timer", display_name = "\\timer")]
     Timer(CommandTimer),
 }
 
 #[derive(Debug, Parser)]
-pub struct CommandMode {
+pub struct CommandFormat {
     /// The output format to use.
     #[arg(value_enum, value_name = "FORMAT")]
     pub format: OutputFormat,
@@ -48,13 +48,13 @@ pub struct CommandMode {
 
 #[derive(Debug, Parser)]
 pub struct CommandTimer {
-    /// Enable or disable timing display.
-    #[arg(value_enum, value_name = "on|off")]
-    pub toggle: TimerToggle,
+    /// Enable or disable timing display. If not specified, show the current mode.
+    #[arg(value_enum)]
+    pub mode: Option<TimerMode>,
 }
 
 #[derive(Debug, Clone, Copy, clap::ValueEnum)]
-pub enum TimerToggle {
+pub enum TimerMode {
     On,
     Off,
 }
