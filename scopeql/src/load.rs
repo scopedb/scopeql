@@ -26,6 +26,7 @@ use crate::Error;
 use crate::client::ScopeQLClient;
 use crate::config::Config;
 use crate::global;
+use crate::global::eprintln_and_error;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub enum DataFormat {
@@ -51,8 +52,8 @@ pub fn load(
             Some("json") => DataFormat::Json,
             Some("csv") => DataFormat::Csv,
             _ => {
-                log::error!("unknown data file format: {}", file.display());
-                log::error!("please specify the format using the --format option");
+                eprintln_and_error(format_args!("unknown data file format: {}", file.display()));
+                eprintln!("please specify the format using the --format option");
                 std::process::exit(1);
             }
         },
@@ -67,7 +68,7 @@ pub fn load(
     let data = match content {
         Ok(rows) => rows,
         Err(err) => {
-            log::error!("failed to load source data: {err:?}");
+            eprintln_and_error(format_args!("failed to load source data: {err:?}"));
             std::process::exit(1);
         }
     };
@@ -88,7 +89,7 @@ pub fn load(
             }
         }
         Err(err) => {
-            log::error!("load command failed: {err:?}");
+            eprintln_and_error(format_args!("failed to load data: {err:?}"));
             std::process::exit(1);
         }
     }
