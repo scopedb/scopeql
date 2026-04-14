@@ -4,10 +4,14 @@ All significant changes to this software be documented in this file.
 
 ## Unreleased
 
+### Breaking Changes
+
+* Disallow changing connection in REPL (`\connect` is dropped). To connect to another ScopeDB instance, start a new REPL session.
+
 ### Improvements
 
 * `scopeql run` supports multiple top-level statements again. When you need machine-readable output across multiple statements `--format jsonl` or `--format csv`.
-* `--format` now belongs to `scopeql run`; the REPL starts in `table` mode and can switch formats with `\mode`.
+* `--format` now belongs to `scopeql run`; the REPL starts in `table` mode and can switch formats with `\format`.
 * Connections can now configure `api_key`, which is sent as an `Authorization: Bearer <key>` header.
 
 ## v0.4.3 (2026-02-13)

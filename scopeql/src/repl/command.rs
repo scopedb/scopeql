@@ -31,40 +31,30 @@ pub enum ReplSubCommand {
     /// Cancel the statement with the given ID.
     #[command(name = "cancel")]
     Cancel(CommandCancel),
-    /// Connect to another ScopeDB server.
-    #[command(name = "connect")]
-    Connect(CommandConnect),
-    /// Set output format (table, json, csv, jsonl).
-    #[command(name = "mode")]
-    Mode(CommandMode),
-    /// Toggle timing display (on/off).
+    /// Display or set output format (table, json, csv, jsonl).
+    #[command(name = "format")]
+    Format(CommandFormat),
+    /// Display or set the timing display mode.
     #[command(name = "timer")]
     Timer(CommandTimer),
 }
 
 #[derive(Debug, Parser)]
-pub struct CommandConnect {
-    /// The endpoint of the server to connect to.
-    #[arg(value_name = "ENDPOINT")]
-    pub endpoint: String,
-}
-
-#[derive(Debug, Parser)]
-pub struct CommandMode {
-    /// The output format to use.
+pub struct CommandFormat {
+    /// The output format to use; if not specified, show the current format.
     #[arg(value_enum, value_name = "FORMAT")]
-    pub format: OutputFormat,
+    pub format: Option<OutputFormat>,
 }
 
 #[derive(Debug, Parser)]
 pub struct CommandTimer {
-    /// Enable or disable timing display.
-    #[arg(value_enum, value_name = "on|off")]
-    pub toggle: TimerToggle,
+    /// Enable or disable timing display; if not specified, show the current mode.
+    #[arg(value_enum)]
+    pub mode: Option<TimerMode>,
 }
 
 #[derive(Debug, Clone, Copy, clap::ValueEnum)]
-pub enum TimerToggle {
+pub enum TimerMode {
     On,
     Off,
 }
@@ -77,7 +67,7 @@ pub struct CommandCancel {
 }
 
 impl CommandCancel {
-    pub fn run(self, client: Option<&ScopeQLClient>) {
+    pub fn run(self, client: &ScopeQLClient) {
         let statement_id = &self.statement_id;
         let statement_id = match uuid::Uuid::try_parse(statement_id) {
             Ok(statement_id) => statement_id,
@@ -85,11 +75,6 @@ impl CommandCancel {
                 eprintln!("error: invalid statement id {statement_id:?}: {err}");
                 return;
             }
-        };
-
-        let Some(client) = client.as_ref() else {
-            eprintln!("error: cancel statement without endpoint");
-            return;
         };
 
         let output = rt().block_on(async move {
