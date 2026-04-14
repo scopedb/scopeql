@@ -122,7 +122,9 @@ pub fn entrypoint(config: &Config) {
             match cmd.cmd {
                 ReplSubCommand::Cancel(cancel) => cancel.run(&client),
                 ReplSubCommand::Format(format) => {
-                    output_format = format.format;
+                    if let Some(format) = format.format {
+                        output_format = format;
+                    }
                     println!("output format: {}", output_format.as_str());
                 }
                 ReplSubCommand::Timer(timer) => match timer.mode {

@@ -29,26 +29,26 @@ pub struct ReplCommand {
 #[derive(Debug, Subcommand)]
 pub enum ReplSubCommand {
     /// Cancel the statement with the given ID.
-    #[command(name = "cancel", display_name = "\\cancel")]
+    #[command(name = "cancel")]
     Cancel(CommandCancel),
-    /// Set output format (table, json, csv, jsonl).
-    #[command(name = "format", display_name = "\\format")]
+    /// Display or set output format (table, json, csv, jsonl).
+    #[command(name = "format")]
     Format(CommandFormat),
-    /// Toggle timing display (on/off).
-    #[command(name = "timer", display_name = "\\timer")]
+    /// Display or set the timing display mode.
+    #[command(name = "timer")]
     Timer(CommandTimer),
 }
 
 #[derive(Debug, Parser)]
 pub struct CommandFormat {
-    /// The output format to use.
+    /// The output format to use; if not specified, show the current format.
     #[arg(value_enum, value_name = "FORMAT")]
-    pub format: OutputFormat,
+    pub format: Option<OutputFormat>,
 }
 
 #[derive(Debug, Parser)]
 pub struct CommandTimer {
-    /// Enable or disable timing display. If not specified, show the current mode.
+    /// Enable or disable timing display; if not specified, show the current mode.
     #[arg(value_enum)]
     pub mode: Option<TimerMode>,
 }

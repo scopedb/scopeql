@@ -6,7 +6,7 @@ All significant changes to this software be documented in this file.
 
 ### Breaking Changes
 
-* Disallow change connection in REPL (`\connect` is dropped). To connect to another ScopeDB instance, start a new REPL session.
+* Disallow changing connection in REPL (`\connect` is dropped). To connect to another ScopeDB instance, start a new REPL session.
 
 ### Improvements
 
