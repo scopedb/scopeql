@@ -45,22 +45,18 @@ pub struct ScopeQLClient {
 }
 
 impl ScopeQLClient {
-    pub fn new(endpoint: String, api_key: Option<String>) -> Self {
+    pub fn from_connection(connection: &ConnectionSpec) -> Self {
         let client = reqwest::ClientBuilder::new()
             .no_proxy()
             .build()
             .expect("failed to create HTTP client");
 
+        let endpoint = connection.endpoint().to_owned();
+        let api_key = connection.api_key().map(str::to_owned);
+
         ScopeQLClient {
             client: Client::new(endpoint, client, api_key).unwrap(),
         }
-    }
-
-    pub fn from_connection(connection: &ConnectionSpec) -> Self {
-        Self::new(
-            connection.endpoint().to_owned(),
-            connection.api_key().map(str::to_owned),
-        )
     }
 
     pub async fn load_jsonlines(

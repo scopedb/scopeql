@@ -70,11 +70,12 @@ pub fn entrypoint(config: &Config) {
     let mut show_timer = true;
 
     let mut prompt = CommandLinePrompt::default();
-    let mut client = if endpoint.is_empty() {
-        None
+    let client = if endpoint.is_empty() {
+        eprintln!("error: endpoint is empty");
+        return;
     } else {
         prompt.set_endpoint(Some(endpoint.clone()));
-        Some(ScopeQLClient::from_connection(connection))
+        ScopeQLClient::from_connection(connection)
     };
 
     let mut keybindings = default_emacs_keybindings();
@@ -119,13 +120,7 @@ pub fn entrypoint(config: &Config) {
             };
 
             match cmd.cmd {
-                ReplSubCommand::Connect(connect) => {
-                    let endpoint = connect.endpoint;
-                    client = Some(ScopeQLClient::new(endpoint.clone(), None));
-                    println!("connected to {endpoint}");
-                    prompt.set_endpoint(Some(endpoint));
-                }
-                ReplSubCommand::Cancel(cancel) => cancel.run(client.as_ref()),
+                ReplSubCommand::Cancel(cancel) => cancel.run(&client),
                 ReplSubCommand::Mode(mode) => {
                     output_format = mode.format;
                     println!("output format: {}", output_format.as_str());
@@ -185,11 +180,6 @@ pub fn entrypoint(config: &Config) {
         }
 
         let outstanding = input[start..].trim_start();
-        let Some(client) = client.as_ref() else {
-            eprintln!("error: execute statements without endpoint");
-            continue;
-        };
-
         for range in stmts_range {
             let stmt = input[range].to_string();
 
@@ -214,6 +204,7 @@ pub fn entrypoint(config: &Config) {
 
             let output = global::rt().block_on({
                 let pb = pb.clone();
+                let client = &client;
                 async move {
                     let fut = client.execute_statement(
                         statement_id,

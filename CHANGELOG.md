@@ -4,6 +4,10 @@ All significant changes to this software be documented in this file.
 
 ## Unreleased
 
+### Breaking Changes
+
+* Disallow change connection in REPL (`\connect` is dropped). To connect to another ScopeDB instance, start a new REPL session.
+
 ### Improvements
 
 * `scopeql run` supports multiple top-level statements again. When you need machine-readable output across multiple statements `--format jsonl` or `--format csv`.
