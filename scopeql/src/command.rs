@@ -23,24 +23,27 @@ use crate::version::version;
 #[command(name = "scopeql", version, long_version = version(), styles=styled())]
 pub struct Command {
     #[clap(flatten)]
-    args: Args,
+    pub repl_args: ReplArgs,
 
     #[command(subcommand)]
-    subcommand: Option<Subcommand>,
+    pub subcommand: Option<Subcommand>,
 }
 
-impl Command {
-    pub fn args(&self) -> Args {
-        self.args.clone()
-    }
-
-    pub fn subcommand(&self) -> Option<Subcommand> {
-        self.subcommand.clone()
-    }
-}
-
+/// Arguments for the ScopeQL REPL.
 #[derive(Default, Debug, Clone, clap::Args)]
-pub struct Args {
+#[group(id = "repl", conflicts_with = "command")]
+pub struct ReplArgs {
+    /// Run `scopeql` with the given config file.
+    #[clap(long, value_hint = ValueHint::FilePath, value_name = "FILE")]
+    pub config_file: Option<PathBuf>,
+    /// Extra headers to include in HTTP requests.
+    #[clap(long = "header", value_name = "KEY: VALUE")]
+    pub headers: Vec<String>,
+}
+
+/// Shared arguments for commands that execute scopeql statements.
+#[derive(Default, Debug, Clone, clap::Args)]
+pub struct ExecArgs {
     /// Run `scopeql` with the given config file.
     #[clap(long, value_hint = ValueHint::FilePath, value_name = "FILE")]
     pub config_file: Option<PathBuf>,
@@ -50,7 +53,7 @@ pub struct Args {
     pub quiet: bool,
 
     /// Extra headers to include in HTTP requests.
-    #[clap(short = 'H', long = "header", value_name = "KEY: VALUE")]
+    #[clap(long = "header", value_name = "KEY: VALUE")]
     pub headers: Vec<String>,
 }
 
@@ -78,6 +81,8 @@ impl OutputFormat {
 pub enum Subcommand {
     /// Run scopeql statements.
     Run {
+        #[clap(flatten)]
+        args: ExecArgs,
         /// The scopeql script file to run. May contain multiple top-level statements.
         #[clap(group = "input", short, long, value_hint = ValueHint::FilePath)]
         file: Option<PathBuf>,
@@ -93,6 +98,8 @@ pub enum Subcommand {
     },
     /// Perform a load operation of source with transformations.
     Load {
+        #[clap(flatten)]
+        args: ExecArgs,
         /// The file path to load the source from.
         #[clap(short, long, value_hint = ValueHint::FilePath)]
         file: PathBuf,
