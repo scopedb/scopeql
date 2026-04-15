@@ -18,4 +18,5 @@ mod command;
 mod entrypoint;
 mod highlight;
 mod prompt;
+mod shlex;
 mod validate;

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::fmt::Write;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -49,6 +50,7 @@ use crate::repl::command::ReplSubCommand;
 use crate::repl::command::TimerMode;
 use crate::repl::highlight::ScopeQLHighlighter;
 use crate::repl::prompt::CommandLinePrompt;
+use crate::repl::shlex;
 use crate::repl::validate::ScopeQLValidator;
 use crate::tokenizer::run_tokenizer;
 
@@ -120,10 +122,12 @@ pub fn entrypoint(config: &Config, headers: HeaderMap) {
 
         // special repl command
         if let Some(input) = input.strip_prefix("\\") {
-            // TODO(@tisonkun): consider avoid shlex dependency
-            let Some(mut args) = shlex::split(input) else {
-                eprintln!("error: failed to parse repl command: {input}");
-                continue;
+            let mut args = match shlex::split(input) {
+                Ok(args) => args,
+                Err(err) => {
+                    eprintln!("error: failed to parse repl command: {err}");
+                    continue;
+                }
             };
 
             if args.is_empty() {
@@ -202,13 +206,13 @@ pub fn entrypoint(config: &Config, headers: HeaderMap) {
                         .max()
                         .unwrap_or(0);
 
-                    println!("Command:");
+                    println!("Command:\n");
                     for subcommand in cmd.get_subcommands() {
-                        print!("  {:width$}", subcommand.get_name());
+                        let mut message = format!("  {:width$}", subcommand.get_name());
                         if let Some(about) = subcommand.get_about() {
-                            print!(" {about}");
+                            write!(&mut message, "  {about}").unwrap();
                         }
-                        println!();
+                        println!("{message}");
                     }
                 }
             }

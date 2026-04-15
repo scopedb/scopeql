@@ -2324,7 +2324,6 @@ dependencies = [
  "serde",
  "serde_json",
  "shadow-rs",
- "shlex",
  "tokio",
  "toml",
  "toml_edit",
