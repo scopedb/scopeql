@@ -62,20 +62,28 @@ impl ScopeQLClient {
         }
     }
 
+    pub fn set_headers(&mut self, headers: HeaderMap) {
+        for (key, value) in headers {
+            if let Some(key) = key {
+                self.set_header(key, value);
+            }
+        }
+    }
+
     pub fn set_header(&mut self, key: HeaderName, value: HeaderValue) {
-        self.client.set_header(key, value);
+        self.client.mut_extra_headers().insert(key, value);
     }
 
     pub fn unset_header(&mut self, key: &HeaderName) {
-        self.client.unset_header(key);
+        self.client.mut_extra_headers().remove(key);
     }
 
-    pub fn clear_headers(&mut self) {
-        self.client.clear_headers();
+    pub fn unset_all_headers(&mut self) {
+        self.client.mut_extra_headers().clear();
     }
 
-    pub fn custom_headers(&self) -> &HeaderMap {
-        self.client.custom_headers()
+    pub fn extra_headers(&self) -> &HeaderMap {
+        self.client.extra_headers()
     }
 
     pub async fn load_jsonlines(

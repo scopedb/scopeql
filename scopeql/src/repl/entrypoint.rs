@@ -42,6 +42,7 @@ use crate::config::Config;
 use crate::global;
 use crate::header::parse_header;
 use crate::repl::command::HeadersAction;
+use crate::repl::command::HeadersUnset;
 use crate::repl::command::ReplCommand;
 use crate::repl::command::ReplSubCommand;
 use crate::repl::command::TimerMode;
@@ -81,11 +82,7 @@ pub fn entrypoint(config: &Config, headers: HeaderMap) {
     } else {
         prompt.set_endpoint(Some(endpoint.clone()));
         let mut client = ScopeQLClient::from_connection(connection);
-        for (key, value) in headers {
-            if let Some(key) = key {
-                client.set_header(key, value);
-            }
-        }
+        client.set_headers(headers);
         client
     };
 
@@ -122,7 +119,12 @@ pub fn entrypoint(config: &Config, headers: HeaderMap) {
 
         // special repl command
         if let Some(input) = input.strip_prefix("\\") {
-            let cmd = match ReplCommand::try_parse_from(shlex::split(input).unwrap_or_default()) {
+            let Some(args) = shlex::split(input) else {
+                eprintln!("error: failed to parse repl command: {input}");
+                continue;
+            };
+
+            let cmd = match ReplCommand::try_parse_from(args) {
                 Ok(cmd) => cmd,
                 Err(err) => {
                     eprintln!("{err}");
@@ -134,39 +136,34 @@ pub fn entrypoint(config: &Config, headers: HeaderMap) {
                 ReplSubCommand::Cancel(cancel) => cancel.run(&client),
                 ReplSubCommand::Headers(cmd) => match cmd.action {
                     None => {
-                        let headers = client.custom_headers();
+                        let headers = client.extra_headers();
                         if headers.is_empty() {
-                            println!("no custom headers set");
+                            println!("no extra headers set");
                         } else {
                             for (key, value) in headers {
-                                println!(
-                                    "{}: {}",
-                                    key,
-                                    value.to_str().unwrap_or("<non-utf8 value>")
-                                );
+                                println!("{key}: {value:?}");
                             }
                         }
                     }
                     Some(HeadersAction::Set(set)) => match parse_header(&set.header) {
                         Ok((key, value)) => {
-                            println!("header set: {}", set.header);
+                            println!("set header: {key}={value:?}");
                             client.set_header(key, value);
                         }
                         Err(err) => eprintln!("error: {err}"),
                     },
-                    Some(HeadersAction::Unset(unset)) => {
-                        if unset.all {
-                            client.clear_headers();
-                            println!("all custom headers cleared");
-                        } else if let Some(key) = unset.key {
-                            match HeaderName::from_str(&key) {
-                                Ok(key) => {
-                                    client.unset_header(&key);
-                                    println!("header unset: {key}");
-                                }
-                                Err(err) => eprintln!("error: invalid header name {key:?}: {err}"),
+                    Some(HeadersAction::Unset(HeadersUnset { key })) => {
+                        match HeaderName::from_str(&key) {
+                            Ok(key) => {
+                                client.unset_header(&key);
+                                println!("header unset: {key}");
                             }
+                            Err(err) => eprintln!("error: invalid header name {key}: {err}"),
                         }
+                    }
+                    Some(HeadersAction::UnsetAll) => {
+                        client.unset_all_headers();
+                        println!("unset all extra headers");
                     }
                 },
                 ReplSubCommand::Format(format) => {

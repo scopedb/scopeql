@@ -17,7 +17,6 @@ use reqwest::IntoUrl;
 use reqwest::Url;
 use reqwest::header::AUTHORIZATION;
 use reqwest::header::HeaderMap;
-use reqwest::header::HeaderName;
 use reqwest::header::HeaderValue;
 use uuid::Uuid;
 
@@ -35,11 +34,11 @@ pub struct Client {
     endpoint: Url,
     client: reqwest::Client,
     authorization: Option<HeaderValue>,
-    custom_headers: HeaderMap,
+    extra_headers: HeaderMap,
 }
 
 impl Client {
-    pub fn new<E: IntoUrl>(
+    pub(super) fn new<E: IntoUrl>(
         endpoint: E,
         client: reqwest::Client,
         api_key: Option<String>,
@@ -58,26 +57,18 @@ impl Client {
                 endpoint,
                 client,
                 authorization,
-                custom_headers: HeaderMap::new(),
+                extra_headers: HeaderMap::new(),
             }),
             Err(err) => Err(Error::new("failed to parse endpoint".to_string()).set_source(err)),
         }
     }
 
-    pub fn set_header(&mut self, key: HeaderName, value: HeaderValue) {
-        self.custom_headers.insert(key, value);
+    pub(super) fn mut_extra_headers(&mut self) -> &mut HeaderMap {
+        &mut self.extra_headers
     }
 
-    pub fn unset_header(&mut self, key: &HeaderName) {
-        self.custom_headers.remove(key);
-    }
-
-    pub fn clear_headers(&mut self) {
-        self.custom_headers.clear();
-    }
-
-    pub fn custom_headers(&self) -> &HeaderMap {
-        &self.custom_headers
+    pub(super) fn extra_headers(&self) -> &HeaderMap {
+        &self.extra_headers
     }
 
     #[fastrace::trace]
@@ -168,8 +159,8 @@ impl Client {
         if let Some(authorization) = &self.authorization {
             headers.insert(AUTHORIZATION, authorization.clone());
         }
-        for (key, value) in &self.custom_headers {
-            headers.append(key, value.clone());
+        for (key, value) in &self.extra_headers {
+            headers.insert(key, value.clone());
         }
         headers
     }

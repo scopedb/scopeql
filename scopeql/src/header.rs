@@ -69,7 +69,12 @@ mod tests {
     fn test_parse_header_missing_colon() {
         let result = parse_header("X-Test value");
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("expected 'KEY: VALUE'"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("expected 'KEY: VALUE'")
+        );
     }
 
     #[test]

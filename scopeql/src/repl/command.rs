@@ -53,26 +53,26 @@ pub enum HeadersAction {
     /// Set a header, overwriting any existing value for the same key.
     #[command(name = "set")]
     Set(HeadersSet),
-    /// Unset a header by key, or all custom headers if --all is given.
+    /// Unset a header by key.
     #[command(name = "unset")]
     Unset(HeadersUnset),
+    /// Unset all extra headers.
+    #[command(name = "unsetall")]
+    UnsetAll,
 }
 
 #[derive(Debug, Parser)]
 pub struct HeadersSet {
     /// The header to set in 'KEY: VALUE' format.
-    #[arg(value_name = "HEADER")]
+    #[arg(value_name = "KEY: VALUE")]
     pub header: String,
 }
 
 #[derive(Debug, Parser)]
 pub struct HeadersUnset {
     /// The header key to remove.
-    #[arg(value_name = "KEY", required_unless_present = "all")]
-    pub key: Option<String>,
-    /// Remove all custom headers.
-    #[arg(long)]
-    pub all: bool,
+    #[arg(value_name = "KEY")]
+    pub key: String,
 }
 
 #[derive(Debug, Parser)]
