@@ -151,7 +151,7 @@ mod tests {
     fn test_simple_split() {
         assert_eq!(
             split("foo bar baz"),
-            Ok(vec!["foo", "bar", "baz"]
+            Ok(["foo", "bar", "baz"]
                 .iter()
                 .map(|s| s.to_string())
                 .collect())
@@ -162,10 +162,7 @@ mod tests {
     fn test_single_quotes() {
         assert_eq!(
             split("foo 'bar baz'"),
-            Ok(vec!["foo", "bar baz"]
-                .iter()
-                .map(|s| s.to_string())
-                .collect())
+            Ok(["foo", "bar baz"].iter().map(|s| s.to_string()).collect())
         );
     }
 
@@ -173,10 +170,7 @@ mod tests {
     fn test_double_quotes() {
         assert_eq!(
             split(r#"foo "bar baz""#),
-            Ok(vec!["foo", "bar baz"]
-                .iter()
-                .map(|s| s.to_string())
-                .collect())
+            Ok(["foo", "bar baz"].iter().map(|s| s.to_string()).collect())
         );
     }
 
@@ -184,14 +178,11 @@ mod tests {
     fn test_escape_outside_quotes() {
         assert_eq!(
             split(r"foo\ bar"),
-            Ok(vec!["foo bar"].iter().map(|s| s.to_string()).collect())
+            Ok(["foo bar"].iter().map(|s| s.to_string()).collect())
         );
         assert_eq!(
             split(r#"foo \"bar\""#),
-            Ok(vec!["foo", r#""bar""#]
-                .iter()
-                .map(|s| s.to_string())
-                .collect())
+            Ok(["foo", r#""bar""#].iter().map(|s| s.to_string()).collect())
         );
     }
 
@@ -200,27 +191,27 @@ mod tests {
         // Rust-style escapes work in double quotes
         assert_eq!(
             split(r#""foo\nbar""#),
-            Ok(vec!["foo\nbar"].iter().map(|s| s.to_string()).collect())
+            Ok(["foo\nbar"].iter().map(|s| s.to_string()).collect())
         );
         assert_eq!(
             split(r#""foo\tbar""#),
-            Ok(vec!["foo\tbar"].iter().map(|s| s.to_string()).collect())
+            Ok(["foo\tbar"].iter().map(|s| s.to_string()).collect())
         );
         assert_eq!(
             split(r#""foo\rbar""#),
-            Ok(vec!["foo\rbar"].iter().map(|s| s.to_string()).collect())
+            Ok(["foo\rbar"].iter().map(|s| s.to_string()).collect())
         );
         assert_eq!(
             split(r#""foo\0bar""#),
-            Ok(vec!["foo\0bar"].iter().map(|s| s.to_string()).collect())
+            Ok(["foo\0bar"].iter().map(|s| s.to_string()).collect())
         );
         assert_eq!(
             split(r#""foo\"bar""#),
-            Ok(vec![r#"foo"bar"#].iter().map(|s| s.to_string()).collect())
+            Ok([r#"foo"bar"#].iter().map(|s| s.to_string()).collect())
         );
         assert_eq!(
             split(r#""foo\\bar""#),
-            Ok(vec![r#"foo\bar"#].iter().map(|s| s.to_string()).collect())
+            Ok([r#"foo\bar"#].iter().map(|s| s.to_string()).collect())
         );
     }
 
@@ -228,11 +219,11 @@ mod tests {
     fn test_escape_in_single_quotes() {
         assert_eq!(
             split(r"'foo\\'"),
-            Ok(vec![r"foo\"].iter().map(|s| s.to_string()).collect())
+            Ok([r"foo\"].iter().map(|s| s.to_string()).collect())
         );
         assert_eq!(
             split(r"'foo\''"),
-            Ok(vec![r"foo'"].iter().map(|s| s.to_string()).collect())
+            Ok([r"foo'"].iter().map(|s| s.to_string()).collect())
         );
     }
 
@@ -253,11 +244,11 @@ mod tests {
         // Outside quotes, backslash escapes any character
         assert_eq!(
             split(r"foo\xbar"),
-            Ok(vec!["fooxbar"].iter().map(|s| s.to_string()).collect())
+            Ok(["fooxbar"].iter().map(|s| s.to_string()).collect())
         );
         assert_eq!(
             split(r"foo\abar"),
-            Ok(vec!["fooabar"].iter().map(|s| s.to_string()).collect())
+            Ok(["fooabar"].iter().map(|s| s.to_string()).collect())
         );
     }
 
@@ -265,7 +256,7 @@ mod tests {
     fn test_mixed_quotes() {
         assert_eq!(
             split(r#"foo 'bar "baz"' qux"#),
-            Ok(vec!["foo", r#"bar "baz""#, "qux"]
+            Ok(["foo", r#"bar "baz""#, "qux"]
                 .iter()
                 .map(|s| s.to_string())
                 .collect())
@@ -295,7 +286,7 @@ mod tests {
     fn test_multiple_spaces() {
         assert_eq!(
             split("foo    bar"),
-            Ok(vec!["foo", "bar"].iter().map(|s| s.to_string()).collect())
+            Ok(["foo", "bar"].iter().map(|s| s.to_string()).collect())
         );
     }
 }
