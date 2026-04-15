@@ -16,6 +16,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
+use clap::CommandFactory;
 use clap::Parser;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
@@ -119,10 +120,17 @@ pub fn entrypoint(config: &Config, headers: HeaderMap) {
 
         // special repl command
         if let Some(input) = input.strip_prefix("\\") {
-            let Some(args) = shlex::split(input) else {
+            // TODO(@tisonkun): consider avoid shlex dependency
+            let Some(mut args) = shlex::split(input) else {
                 eprintln!("error: failed to parse repl command: {input}");
                 continue;
             };
+
+            if args.is_empty() {
+                args.push("\\".to_string());
+            } else {
+                args[0] = format!("\\{}", args[0]);
+            }
 
             let cmd = match ReplCommand::try_parse_from(args) {
                 Ok(cmd) => cmd,
@@ -185,6 +193,24 @@ pub fn entrypoint(config: &Config, headers: HeaderMap) {
                         println!("timer: off");
                     }
                 },
+                ReplSubCommand::Help => {
+                    let cmd = ReplCommand::command();
+
+                    let width = cmd
+                        .get_subcommands()
+                        .map(|c| c.get_name().len())
+                        .max()
+                        .unwrap_or(0);
+
+                    println!("Command:");
+                    for subcommand in cmd.get_subcommands() {
+                        print!("  {:width$}", subcommand.get_name());
+                        if let Some(about) = subcommand.get_about() {
+                            print!(" {about}");
+                        }
+                        println!();
+                    }
+                }
             }
             continue;
         }

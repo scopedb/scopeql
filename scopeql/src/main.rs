@@ -20,10 +20,12 @@ use clap::Parser;
 use logforth::append::file::FileBuilder;
 use logforth::filter::env_filter::EnvFilterBuilder;
 use logforth::layout::JsonLayout;
+use reqwest::header::HeaderMap;
 
-use crate::command::Args;
 use crate::command::Command;
+use crate::command::ExecArgs;
 use crate::command::GenerateTarget;
+use crate::command::ReplArgs;
 use crate::command::Subcommand;
 use crate::config::Config;
 use crate::config::load_config;
@@ -44,34 +46,33 @@ mod version;
 
 fn main() {
     let cmd = Command::parse();
-
-    let Args {
-        config_file,
-        quiet,
-        headers,
-    } = cmd.args();
-    let headers = match header::parse_headers(&headers) {
-        Ok(headers) => headers,
-        Err(err) => {
-            eprintln!("error: {err}");
-            std::process::exit(1);
-        }
-    };
     setup_logger();
 
-    match cmd.subcommand() {
+    match cmd.subcommand {
         None => {
             log::info!("starting interactive repl");
+            let ReplArgs {
+                config_file,
+                headers,
+            } = cmd.repl_args;
             let config = load_config(config_file);
+            let headers = parse_headers(headers);
             repl::entrypoint(&config, headers);
         }
         Some(Subcommand::Run {
+            args:
+                ExecArgs {
+                    config_file,
+                    quiet,
+                    headers,
+                },
             format,
             file,
             statement,
             output_file,
         }) => {
             let config = load_config(config_file);
+            let headers = parse_headers(headers);
             match (file, statement) {
                 (Some(file), None) => match std::fs::read_to_string(&file) {
                     Ok(content) => {
@@ -100,6 +101,22 @@ fn main() {
                 }
             }
         }
+        Some(Subcommand::Load {
+            args:
+                ExecArgs {
+                    config_file,
+                    quiet,
+                    headers,
+                },
+            file,
+            transform,
+            format,
+        }) => {
+            log::info!("starting load command for {}", file.display());
+            let config = load_config(config_file);
+            let headers = parse_headers(headers);
+            load::load(&config, quiet, file, transform, format, headers);
+        }
         Some(Subcommand::Generate {
             target,
             output_file,
@@ -124,14 +141,16 @@ fn main() {
                 println!("{content}");
             }
         }
-        Some(Subcommand::Load {
-            file,
-            transform,
-            format,
-        }) => {
-            log::info!("starting load command for {}", file.display());
-            let config = load_config(config_file);
-            load::load(&config, quiet, file, transform, format, headers);
+    }
+}
+
+#[track_caller]
+fn parse_headers(headers: Vec<String>) -> HeaderMap {
+    match header::parse_headers(&headers) {
+        Ok(headers) => headers,
+        Err(err) => {
+            eprintln_and_error(format_args!("invalid headers: {err}"));
+            std::process::exit(1);
         }
     }
 }

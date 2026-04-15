@@ -4,6 +4,11 @@ All significant changes to this software be documented in this file.
 
 ## Unreleased
 
+### New Features
+
+* Allow `run` and `load` command to specify `--header "<key>: <value>"` for custom HTTP headers.
+* Add REPL command `\headers [set|unset|unsetall]` to manage custom HTTP headers in REPL.
+
 ## v0.5.0 (2026-04-14)
 
 ### Breaking Changes
