@@ -15,8 +15,8 @@
 pub use entrypoint::entrypoint;
 
 mod command;
+mod cmdlex;
 mod entrypoint;
 mod highlight;
 mod prompt;
-mod shlex;
 mod validate;

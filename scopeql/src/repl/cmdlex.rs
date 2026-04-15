@@ -12,21 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Simple shell-like lexical splitting with Rust-style escape sequences.
+//! Command-line argument parsing with Rust-style escape sequences.
 //!
-//! This module provides shell-style word splitting with:
+//! This module provides command-line style argument splitting with:
 //! - Single quotes: minimal escaping (`\'` and `\\` only)
 //! - Double quotes: Rust-style escaping (`\n`, `\t`, `\r`, `\0`, `\"`, `\\`, `\'`)
 //! - Unquoted: backslash escapes any character
-//! - Whitespace as word separator
+//! - Whitespace as argument separator
 
 use std::fmt;
 use std::iter::Peekable;
 use std::str::Chars;
 
-/// Error type for shell lexical splitting.
+/// Error type for command-line argument parsing.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ShlexError {
+pub enum CmdlexError {
     /// Unclosed single quote.
     UnclosedSingleQuote,
     /// Unclosed double quote.
@@ -37,24 +37,24 @@ pub enum ShlexError {
     UnknownEscape(char),
 }
 
-impl fmt::Display for ShlexError {
+impl fmt::Display for CmdlexError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ShlexError::UnclosedSingleQuote => write!(f, "unclosed single quote"),
-            ShlexError::UnclosedDoubleQuote => write!(f, "unclosed double quote"),
-            ShlexError::TrailingBackslash => write!(f, "trailing backslash"),
-            ShlexError::UnknownEscape(ch) => write!(f, "unknown escape sequence: \\{}", ch),
+            CmdlexError::UnclosedSingleQuote => write!(f, "unclosed single quote"),
+            CmdlexError::UnclosedDoubleQuote => write!(f, "unclosed double quote"),
+            CmdlexError::TrailingBackslash => write!(f, "trailing backslash"),
+            CmdlexError::UnknownEscape(ch) => write!(f, "unknown escape sequence: \\{}", ch),
         }
     }
 }
 
-impl std::error::Error for ShlexError {}
+impl std::error::Error for CmdlexError {}
 
-/// Split a string into words using shell-like rules with Rust-style escaping.
+/// Split a string into arguments using shell-like rules with Rust-style escaping.
 ///
 /// Returns an error if the input has unclosed quotes, trailing backslash,
 /// or unknown escape sequences in quoted strings.
-pub fn split(input: &str) -> Result<Vec<String>, ShlexError> {
+pub fn split(input: &str) -> Result<Vec<String>, CmdlexError> {
     let mut words = Vec::new();
     let mut chars = input.chars().peekable();
 
@@ -78,18 +78,18 @@ pub fn split(input: &str) -> Result<Vec<String>, ShlexError> {
     Ok(words)
 }
 
-fn parse_single_quoted(chars: &mut Peekable<Chars>) -> Result<String, ShlexError> {
+fn parse_single_quoted(chars: &mut Peekable<Chars>) -> Result<String, CmdlexError> {
     chars.next(); // Skip opening single quote
     let mut result = String::new();
 
     loop {
         match chars.next() {
-            None => return Err(ShlexError::UnclosedSingleQuote),
+            None => return Err(CmdlexError::UnclosedSingleQuote),
             Some('\\') => match chars.next() {
-                None => return Err(ShlexError::TrailingBackslash),
+                None => return Err(CmdlexError::TrailingBackslash),
                 Some('\'') => result.push('\''),
                 Some('\\') => result.push('\\'),
-                Some(ch) => return Err(ShlexError::UnknownEscape(ch)),
+                Some(ch) => return Err(CmdlexError::UnknownEscape(ch)),
             },
             Some('\'') => break, // Found closing single quote
             Some(ch) => result.push(ch),
@@ -99,17 +99,17 @@ fn parse_single_quoted(chars: &mut Peekable<Chars>) -> Result<String, ShlexError
     Ok(result)
 }
 
-fn parse_double_quoted(chars: &mut Peekable<Chars>) -> Result<String, ShlexError> {
+fn parse_double_quoted(chars: &mut Peekable<Chars>) -> Result<String, CmdlexError> {
     chars.next(); // Skip opening double quote
     let mut result = String::new();
 
     loop {
         match chars.next() {
-            None => return Err(ShlexError::UnclosedDoubleQuote),
+            None => return Err(CmdlexError::UnclosedDoubleQuote),
             Some('\\') => {
                 // Double quotes: Rust-style escaping
                 match chars.next() {
-                    None => return Err(ShlexError::TrailingBackslash),
+                    None => return Err(CmdlexError::TrailingBackslash),
                     Some('n') => result.push('\n'),
                     Some('t') => result.push('\t'),
                     Some('r') => result.push('\r'),
@@ -117,7 +117,7 @@ fn parse_double_quoted(chars: &mut Peekable<Chars>) -> Result<String, ShlexError
                     Some('"') => result.push('"'),
                     Some('\\') => result.push('\\'),
                     Some('\'') => result.push('\''),
-                    Some(ch) => return Err(ShlexError::UnknownEscape(ch)),
+                    Some(ch) => return Err(CmdlexError::UnknownEscape(ch)),
                 }
             }
             Some('"') => break, // Found closing double quote
@@ -128,7 +128,7 @@ fn parse_double_quoted(chars: &mut Peekable<Chars>) -> Result<String, ShlexError
     Ok(result)
 }
 
-fn parse_unquoted(chars: &mut Peekable<Chars>) -> Result<String, ShlexError> {
+fn parse_unquoted(chars: &mut Peekable<Chars>) -> Result<String, CmdlexError> {
     let mut result = String::new();
 
     loop {
@@ -138,7 +138,7 @@ fn parse_unquoted(chars: &mut Peekable<Chars>) -> Result<String, ShlexError> {
                 chars.next();
                 // Outside quotes: escape any character
                 match chars.next() {
-                    None => return Err(ShlexError::TrailingBackslash),
+                    None => return Err(CmdlexError::TrailingBackslash),
                     Some(ch) => result.push(ch),
                 }
             }
@@ -246,14 +246,14 @@ mod tests {
 
     #[test]
     fn test_unknown_escape_in_double_quotes() {
-        assert_eq!(split(r#""foo\xbar""#), Err(ShlexError::UnknownEscape('x')));
-        assert_eq!(split(r#""foo\abar""#), Err(ShlexError::UnknownEscape('a')));
+        assert_eq!(split(r#""foo\xbar""#), Err(CmdlexError::UnknownEscape('x')));
+        assert_eq!(split(r#""foo\abar""#), Err(CmdlexError::UnknownEscape('a')));
     }
 
     #[test]
     fn test_unknown_escape_in_single_quotes() {
-        assert_eq!(split(r"'foo\nbar'"), Err(ShlexError::UnknownEscape('n')));
-        assert_eq!(split(r"'foo\abar'"), Err(ShlexError::UnknownEscape('a')));
+        assert_eq!(split(r"'foo\nbar'"), Err(CmdlexError::UnknownEscape('n')));
+        assert_eq!(split(r"'foo\abar'"), Err(CmdlexError::UnknownEscape('a')));
     }
 
     #[test]
@@ -282,15 +282,15 @@ mod tests {
 
     #[test]
     fn test_unclosed_quotes() {
-        assert_eq!(split("foo 'bar"), Err(ShlexError::UnclosedSingleQuote));
-        assert_eq!(split(r#"foo "bar"#), Err(ShlexError::UnclosedDoubleQuote));
+        assert_eq!(split("foo 'bar"), Err(CmdlexError::UnclosedSingleQuote));
+        assert_eq!(split(r#"foo "bar"#), Err(CmdlexError::UnclosedDoubleQuote));
     }
 
     #[test]
     fn test_trailing_backslash() {
-        assert_eq!(split(r"foo\"), Err(ShlexError::TrailingBackslash));
-        assert_eq!(split(r#""foo\"#), Err(ShlexError::TrailingBackslash));
-        assert_eq!(split(r"'foo\"), Err(ShlexError::TrailingBackslash));
+        assert_eq!(split(r"foo\"), Err(CmdlexError::TrailingBackslash));
+        assert_eq!(split(r#""foo\"#), Err(CmdlexError::TrailingBackslash));
+        assert_eq!(split(r"'foo\"), Err(CmdlexError::TrailingBackslash));
     }
 
     #[test]

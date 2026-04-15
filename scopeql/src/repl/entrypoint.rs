@@ -48,9 +48,9 @@ use crate::repl::command::HeadersUnset;
 use crate::repl::command::ReplCommand;
 use crate::repl::command::ReplSubCommand;
 use crate::repl::command::TimerMode;
+use crate::repl::cmdlex;
 use crate::repl::highlight::ScopeQLHighlighter;
 use crate::repl::prompt::CommandLinePrompt;
-use crate::repl::shlex;
 use crate::repl::validate::ScopeQLValidator;
 use crate::tokenizer::run_tokenizer;
 
@@ -122,7 +122,7 @@ pub fn entrypoint(config: &Config, headers: HeaderMap) {
 
         // special repl command
         if let Some(input) = input.strip_prefix("\\") {
-            let mut args = match shlex::split(input) {
+            let mut args = match cmdlex::split(input) {
                 Ok(args) => args,
                 Err(err) => {
                     eprintln!("error: failed to parse repl command: {err}");
