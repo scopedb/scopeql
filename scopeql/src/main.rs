@@ -34,6 +34,7 @@ mod command;
 mod config;
 mod execute;
 mod global;
+mod header;
 mod load;
 mod output;
 mod pretty;
@@ -44,14 +45,25 @@ mod version;
 fn main() {
     let cmd = Command::parse();
 
-    let Args { config_file, quiet } = cmd.args();
+    let Args {
+        config_file,
+        quiet,
+        headers,
+    } = cmd.args();
+    let headers = match header::parse_headers(&headers) {
+        Ok(headers) => headers,
+        Err(err) => {
+            eprintln!("error: {err}");
+            std::process::exit(1);
+        }
+    };
     setup_logger();
 
     match cmd.subcommand() {
         None => {
             log::info!("starting interactive repl");
             let config = load_config(config_file);
-            repl::entrypoint(&config);
+            repl::entrypoint(&config, headers);
         }
         Some(Subcommand::Run {
             format,
@@ -64,7 +76,7 @@ fn main() {
                 (Some(file), None) => match std::fs::read_to_string(&file) {
                     Ok(content) => {
                         log::info!("running scopeql statements from file {}", file.display());
-                        execute::execute(&config, quiet, format, content, output_file);
+                        execute::execute(&config, quiet, format, content, output_file, headers);
                     }
                     Err(err) => {
                         let file = file.display();
@@ -76,7 +88,7 @@ fn main() {
                 },
                 (None, Some(statement)) => {
                     log::info!("running scopeql statements from inline input");
-                    execute::execute(&config, quiet, format, statement, output_file);
+                    execute::execute(&config, quiet, format, statement, output_file, headers);
                 }
                 (None, None) => {
                     eprintln!("error: missing input; provide statement text or use -f/--file");
@@ -119,7 +131,7 @@ fn main() {
         }) => {
             log::info!("starting load command for {}", file.display());
             let config = load_config(config_file);
-            load::load(&config, quiet, file, transform, format);
+            load::load(&config, quiet, file, transform, format, headers);
         }
     }
 }

@@ -34,10 +34,11 @@ pub struct Client {
     endpoint: Url,
     client: reqwest::Client,
     authorization: Option<HeaderValue>,
+    extra_headers: HeaderMap,
 }
 
 impl Client {
-    pub fn new<E: IntoUrl>(
+    pub(super) fn new<E: IntoUrl>(
         endpoint: E,
         client: reqwest::Client,
         api_key: Option<String>,
@@ -56,9 +57,18 @@ impl Client {
                 endpoint,
                 client,
                 authorization,
+                extra_headers: HeaderMap::new(),
             }),
             Err(err) => Err(Error::new("failed to parse endpoint".to_string()).set_source(err)),
         }
+    }
+
+    pub(super) fn mut_extra_headers(&mut self) -> &mut HeaderMap {
+        &mut self.extra_headers
+    }
+
+    pub(super) fn extra_headers(&self) -> &HeaderMap {
+        &self.extra_headers
     }
 
     #[fastrace::trace]
@@ -148,6 +158,9 @@ impl Client {
         let mut headers = traceparent_headers();
         if let Some(authorization) = &self.authorization {
             headers.insert(AUTHORIZATION, authorization.clone());
+        }
+        for (key, value) in &self.extra_headers {
+            headers.insert(key, value.clone());
         }
         headers
     }

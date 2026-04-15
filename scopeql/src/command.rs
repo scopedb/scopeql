@@ -23,7 +23,7 @@ use crate::version::version;
 #[command(name = "scopeql", version, long_version = version(), styles=styled())]
 pub struct Command {
     #[clap(flatten)]
-    config: Args,
+    args: Args,
 
     #[command(subcommand)]
     subcommand: Option<Subcommand>,
@@ -31,7 +31,7 @@ pub struct Command {
 
 impl Command {
     pub fn args(&self) -> Args {
-        self.config.clone()
+        self.args.clone()
     }
 
     pub fn subcommand(&self) -> Option<Subcommand> {
@@ -48,6 +48,10 @@ pub struct Args {
     /// Suppress normal output.
     #[clap(short, long, alias = "silent", default_value = "false")]
     pub quiet: bool,
+
+    /// Extra headers to include in HTTP requests.
+    #[clap(short = 'H', long = "header", value_name = "KEY: VALUE")]
+    pub headers: Vec<String>,
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
