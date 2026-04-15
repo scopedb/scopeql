@@ -37,6 +37,16 @@ pub enum ReplSubCommand {
     /// Display or set the timing display mode.
     #[command(name = "timer")]
     Timer(CommandTimer),
+    /// Append or clear extra headers for requests.
+    #[command(name = "set-headers")]
+    SetHeaders(CommandSetHeaders),
+}
+
+#[derive(Debug, Parser)]
+pub struct CommandSetHeaders {
+    /// The header to set in 'KEY: VALUE' format; if not specified, clear all custom headers.
+    #[arg(value_name = "HEADER")]
+    pub header: Option<String>,
 }
 
 #[derive(Debug, Parser)]

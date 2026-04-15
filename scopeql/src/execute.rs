@@ -16,6 +16,7 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::PathBuf;
 
+use reqwest::header::HeaderMap;
 use scopeql_parser::TokenKind;
 
 use crate::client::ScopeQLClient;
@@ -31,11 +32,12 @@ pub fn execute(
     format: OutputFormat,
     stmts: String,
     output_file: Option<PathBuf>,
+    headers: HeaderMap,
 ) {
     let connection = config
         .get_default_connection()
         .expect("no default connection in config");
-    let client = ScopeQLClient::from_connection(connection);
+    let client = ScopeQLClient::from_connection(connection).with_headers(headers);
 
     let statements = match top_level_statements(&stmts) {
         Ok(statements) => statements,

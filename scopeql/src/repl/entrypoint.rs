@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -31,6 +32,9 @@ use reedline::Reedline;
 use reedline::ReedlineEvent;
 use reedline::Signal;
 use reedline::default_emacs_keybindings;
+use reqwest::header::HeaderMap;
+use reqwest::header::HeaderName;
+use reqwest::header::HeaderValue;
 use scopeql_parser::TokenKind;
 
 use crate::client::ScopeQLClient;
@@ -61,7 +65,7 @@ fn make_file_history() -> Option<FileBackedHistory> {
     }
 }
 
-pub fn entrypoint(config: &Config) {
+pub fn entrypoint(config: &Config, headers: HeaderMap) {
     let connection = config
         .get_default_connection()
         .expect("no default connection in config");
@@ -70,12 +74,12 @@ pub fn entrypoint(config: &Config) {
     let mut show_timer = true;
 
     let mut prompt = CommandLinePrompt::default();
-    let client = if endpoint.is_empty() {
+    let mut client = if endpoint.is_empty() {
         eprintln!("error: endpoint is empty");
         return;
     } else {
         prompt.set_endpoint(Some(endpoint.clone()));
-        ScopeQLClient::from_connection(connection)
+        ScopeQLClient::from_connection(connection).with_headers(headers)
     };
 
     let mut keybindings = default_emacs_keybindings();
@@ -111,7 +115,7 @@ pub fn entrypoint(config: &Config) {
 
         // special repl command
         if let Some(input) = input.strip_prefix("\\") {
-            let cmd = match ReplCommand::try_parse_from(input.split_whitespace()) {
+            let cmd = match ReplCommand::try_parse_from(shlex::split(input).unwrap_or_default()) {
                 Ok(cmd) => cmd,
                 Err(err) => {
                     eprintln!("{err}");
@@ -121,6 +125,33 @@ pub fn entrypoint(config: &Config) {
 
             match cmd.cmd {
                 ReplSubCommand::Cancel(cancel) => cancel.run(&client),
+                ReplSubCommand::SetHeaders(set_headers) => {
+                    if let Some(h) = set_headers.header {
+                        if let Some((key, value)) = h.split_once(':') {
+                            let key = match HeaderName::from_str(key.trim()) {
+                                Ok(key) => key,
+                                Err(err) => {
+                                    eprintln!("error: invalid header name {key:?}: {err}");
+                                    continue;
+                                }
+                            };
+                            let value = match HeaderValue::from_str(value.trim()) {
+                                Ok(value) => value,
+                                Err(err) => {
+                                    eprintln!("error: invalid header value {value:?}: {err}");
+                                    continue;
+                                }
+                            };
+                            client.append_header(key, value);
+                            println!("header appended: {h}");
+                        } else {
+                            eprintln!("error: invalid header {h:?}; expected 'KEY: VALUE'");
+                        }
+                    } else {
+                        client.set_headers(HeaderMap::new());
+                        println!("custom headers cleared");
+                    }
+                }
                 ReplSubCommand::Format(format) => {
                     if let Some(format) = format.format {
                         output_format = format;

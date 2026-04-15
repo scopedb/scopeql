@@ -17,6 +17,9 @@ use std::time::Duration;
 use exn::Result;
 use exn::ResultExt;
 use exn::bail;
+use reqwest::header::HeaderMap;
+use reqwest::header::HeaderName;
+use reqwest::header::HeaderValue;
 use uuid::Uuid;
 
 use crate::Error;
@@ -57,6 +60,19 @@ impl ScopeQLClient {
         ScopeQLClient {
             client: Client::new(endpoint, client, api_key).unwrap(),
         }
+    }
+
+    pub fn with_headers(mut self, headers: HeaderMap) -> Self {
+        self.client.set_headers(headers);
+        self
+    }
+
+    pub fn append_header(&mut self, key: HeaderName, value: HeaderValue) {
+        self.client.append_header(key, value);
+    }
+
+    pub fn set_headers(&mut self, headers: HeaderMap) {
+        self.client.set_headers(headers);
     }
 
     pub async fn load_jsonlines(

@@ -48,6 +48,10 @@ pub struct Args {
     /// Suppress normal output.
     #[clap(short, long, alias = "silent", default_value = "false")]
     pub quiet: bool,
+
+    /// Extra headers to include in the request.
+    #[clap(short = 'H', long = "header", value_name = "KEY: VALUE")]
+    pub headers: Vec<String>,
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
