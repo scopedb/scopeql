@@ -20,7 +20,10 @@ use crate::command::OutputFormat;
 use crate::global::rt;
 
 #[derive(Debug, Parser)]
-#[command(multicall = true)]
+#[command(
+    multicall = true,
+    disable_help_subcommand = true,
+)]
 pub struct ReplCommand {
     #[command(subcommand)]
     pub cmd: ReplSubCommand,
@@ -31,15 +34,18 @@ pub enum ReplSubCommand {
     /// Cancel the statement with the given ID.
     #[command(name = "cancel")]
     Cancel(CommandCancel),
-    /// Display or set output format (table, json, csv, jsonl).
+    /// Display or set output format.
     #[command(name = "format")]
     Format(CommandFormat),
-    /// Display or set the timing display mode.
-    #[command(name = "timer")]
-    Timer(CommandTimer),
     /// Display or manage extra headers for requests.
     #[command(name = "headers")]
     Headers(CommandHeaders),
+    /// Display or set the timing display mode.
+    #[command(name = "timer")]
+    Timer(CommandTimer),
+    /// Print help.
+    #[command(name = "help")]
+    Help,
 }
 
 #[derive(Debug, Parser)]
