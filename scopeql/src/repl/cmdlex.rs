@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Command-line argument parsing with Rust-style escape sequences.
+//! REPL command lexing with Rust-style escape sequences.
 //!
-//! This module provides command-line style argument splitting with:
+//! This module provides REPL command lexing with:
 //! - Single quotes: minimal escaping (`\'` and `\\` only)
 //! - Double quotes: Rust-style escaping (`\n`, `\t`, `\r`, `\0`, `\"`, `\\`, `\'`)
 //! - Unquoted: backslash escapes any character
@@ -24,7 +24,7 @@ use std::fmt;
 use std::iter::Peekable;
 use std::str::Chars;
 
-/// Error type for command-line argument parsing.
+/// Error type for REPL command lexing.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CmdlexError {
     /// Unclosed single quote.
@@ -43,34 +43,27 @@ impl fmt::Display for CmdlexError {
             CmdlexError::UnclosedSingleQuote => write!(f, "unclosed single quote"),
             CmdlexError::UnclosedDoubleQuote => write!(f, "unclosed double quote"),
             CmdlexError::TrailingBackslash => write!(f, "trailing backslash"),
-            CmdlexError::UnknownEscape(ch) => write!(f, "unknown escape sequence: \\{}", ch),
+            CmdlexError::UnknownEscape(ch) => write!(f, "unknown escape sequence: \\{ch}"),
         }
     }
 }
 
 impl std::error::Error for CmdlexError {}
 
-/// Split a string into arguments using shell-like rules with Rust-style escaping.
-///
-/// Returns an error if the input has unclosed quotes, trailing backslash,
-/// or unknown escape sequences in quoted strings.
 pub fn split(input: &str) -> Result<Vec<String>, CmdlexError> {
     let mut words = Vec::new();
     let mut chars = input.chars().peekable();
 
     while let Some(&ch) = chars.peek() {
         match ch {
-            ' ' | '\t' | '\n' | '\r' => {
-                chars.next(); // Skip whitespace
-            }
-            '\'' => {
-                words.push(parse_single_quoted(&mut chars)?);
-            }
-            '"' => {
-                words.push(parse_double_quoted(&mut chars)?);
-            }
+            '\'' => words.push(parse_single_quoted(&mut chars)?),
+            '"' => words.push(parse_double_quoted(&mut chars)?),
             _ => {
-                words.push(parse_unquoted(&mut chars)?);
+                if ch.is_whitespace() {
+                    chars.next();
+                } else {
+                    words.push(parse_unquoted(&mut chars)?);
+                }
             }
         }
     }
@@ -133,7 +126,8 @@ fn parse_unquoted(chars: &mut Peekable<Chars>) -> Result<String, CmdlexError> {
 
     loop {
         match chars.peek() {
-            None | Some(' ') | Some('\t') | Some('\n') | Some('\r') => break,
+            None => break,
+            Some(ch) if ch.is_whitespace() => break,
             Some('\\') => {
                 chars.next();
                 // Outside quotes: escape any character
@@ -142,9 +136,7 @@ fn parse_unquoted(chars: &mut Peekable<Chars>) -> Result<String, CmdlexError> {
                     Some(ch) => result.push(ch),
                 }
             }
-            Some(_) => {
-                result.push(chars.next().unwrap());
-            }
+            Some(_) => result.push(chars.next().unwrap()),
         }
     }
 
