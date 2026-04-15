@@ -19,8 +19,17 @@ use clap::ValueHint;
 use crate::load::DataFormat;
 use crate::version::version;
 
+/// ScopeDB Command Line Interface
+///
+/// If no command is specified, an interactive REPL will be started.
 #[derive(Debug, clap::Parser)]
-#[command(name = "scopeql", version, long_version = version(), styles=styled())]
+#[command(
+    name = "scopeql",
+    version,
+    long_version = version(),
+    styles=styled(),
+    args_conflicts_with_subcommands = true
+)]
 pub struct Command {
     #[clap(flatten)]
     pub repl_args: ReplArgs,
@@ -29,9 +38,8 @@ pub struct Command {
     pub subcommand: Option<Subcommand>,
 }
 
-/// Arguments for the ScopeQL REPL.
+/// Arguments for the REPL.
 #[derive(Default, Debug, Clone, clap::Args)]
-#[group(id = "repl", conflicts_with = "command")]
 pub struct ReplArgs {
     /// Run `scopeql` with the given config file.
     #[clap(long, value_hint = ValueHint::FilePath, value_name = "FILE")]
