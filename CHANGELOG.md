@@ -4,6 +4,8 @@ All significant changes to this software be documented in this file.
 
 ## Unreleased
 
+## v0.5.1 (2026-04-15)
+
 ### New Features
 
 * Allow `run` and `load` command to specify `--header "<key>: <value>"` for custom HTTP headers.
