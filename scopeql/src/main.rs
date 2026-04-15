@@ -15,15 +15,11 @@
 #![feature(string_from_utf8_lossy_owned)]
 
 use std::num::NonZeroUsize;
-use std::str::FromStr;
 
 use clap::Parser;
 use logforth::append::file::FileBuilder;
 use logforth::filter::env_filter::EnvFilterBuilder;
 use logforth::layout::JsonLayout;
-use reqwest::header::HeaderMap;
-use reqwest::header::HeaderName;
-use reqwest::header::HeaderValue;
 
 use crate::command::Args;
 use crate::command::Command;
@@ -38,6 +34,7 @@ mod command;
 mod config;
 mod execute;
 mod global;
+mod header;
 mod load;
 mod output;
 mod pretty;
@@ -53,7 +50,13 @@ fn main() {
         quiet,
         headers,
     } = cmd.args();
-    let headers = parse_headers(&headers);
+    let headers = match header::parse_headers(&headers) {
+        Ok(headers) => headers,
+        Err(err) => {
+            eprintln!("error: {err}");
+            std::process::exit(1);
+        }
+    };
     setup_logger();
 
     match cmd.subcommand() {
@@ -131,33 +134,6 @@ fn main() {
             load::load(&config, quiet, file, transform, format, headers);
         }
     }
-}
-
-fn parse_headers(headers: &[String]) -> HeaderMap {
-    let mut map = HeaderMap::new();
-    for h in headers {
-        if let Some((key, value)) = h.split_once(':') {
-            let key = match HeaderName::from_str(key.trim()) {
-                Ok(key) => key,
-                Err(err) => {
-                    eprintln!("error: invalid header name {key:?}: {err}");
-                    std::process::exit(1);
-                }
-            };
-            let value = match HeaderValue::from_str(value.trim()) {
-                Ok(value) => value,
-                Err(err) => {
-                    eprintln!("error: invalid header value {value:?}: {err}");
-                    std::process::exit(1);
-                }
-            };
-            map.append(key, value);
-        } else {
-            eprintln!("error: invalid header {h:?}; expected 'KEY: VALUE'");
-            std::process::exit(1);
-        }
-    }
-    map
 }
 
 fn setup_logger() {

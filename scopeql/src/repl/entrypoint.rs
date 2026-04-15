@@ -34,13 +34,14 @@ use reedline::Signal;
 use reedline::default_emacs_keybindings;
 use reqwest::header::HeaderMap;
 use reqwest::header::HeaderName;
-use reqwest::header::HeaderValue;
 use scopeql_parser::TokenKind;
 
 use crate::client::ScopeQLClient;
 use crate::command::OutputFormat;
 use crate::config::Config;
 use crate::global;
+use crate::header::parse_header;
+use crate::repl::command::HeadersAction;
 use crate::repl::command::ReplCommand;
 use crate::repl::command::ReplSubCommand;
 use crate::repl::command::TimerMode;
@@ -79,7 +80,13 @@ pub fn entrypoint(config: &Config, headers: HeaderMap) {
         return;
     } else {
         prompt.set_endpoint(Some(endpoint.clone()));
-        ScopeQLClient::from_connection(connection).with_headers(headers)
+        let mut client = ScopeQLClient::from_connection(connection);
+        for (key, value) in headers {
+            if let Some(key) = key {
+                client.set_header(key, value);
+            }
+        }
+        client
     };
 
     let mut keybindings = default_emacs_keybindings();
@@ -125,33 +132,43 @@ pub fn entrypoint(config: &Config, headers: HeaderMap) {
 
             match cmd.cmd {
                 ReplSubCommand::Cancel(cancel) => cancel.run(&client),
-                ReplSubCommand::SetHeaders(set_headers) => {
-                    if let Some(h) = set_headers.header {
-                        if let Some((key, value)) = h.split_once(':') {
-                            let key = match HeaderName::from_str(key.trim()) {
-                                Ok(key) => key,
-                                Err(err) => {
-                                    eprintln!("error: invalid header name {key:?}: {err}");
-                                    continue;
-                                }
-                            };
-                            let value = match HeaderValue::from_str(value.trim()) {
-                                Ok(value) => value,
-                                Err(err) => {
-                                    eprintln!("error: invalid header value {value:?}: {err}");
-                                    continue;
-                                }
-                            };
-                            client.append_header(key, value);
-                            println!("header appended: {h}");
+                ReplSubCommand::Headers(cmd) => match cmd.action {
+                    None => {
+                        let headers = client.custom_headers();
+                        if headers.is_empty() {
+                            println!("no custom headers set");
                         } else {
-                            eprintln!("error: invalid header {h:?}; expected 'KEY: VALUE'");
+                            for (key, value) in headers {
+                                println!(
+                                    "{}: {}",
+                                    key,
+                                    value.to_str().unwrap_or("<non-utf8 value>")
+                                );
+                            }
                         }
-                    } else {
-                        client.set_headers(HeaderMap::new());
-                        println!("custom headers cleared");
                     }
-                }
+                    Some(HeadersAction::Set(set)) => match parse_header(&set.header) {
+                        Ok((key, value)) => {
+                            println!("header set: {}", set.header);
+                            client.set_header(key, value);
+                        }
+                        Err(err) => eprintln!("error: {err}"),
+                    },
+                    Some(HeadersAction::Unset(unset)) => {
+                        if unset.all {
+                            client.clear_headers();
+                            println!("all custom headers cleared");
+                        } else if let Some(key) = unset.key {
+                            match HeaderName::from_str(&key) {
+                                Ok(key) => {
+                                    client.unset_header(&key);
+                                    println!("header unset: {key}");
+                                }
+                                Err(err) => eprintln!("error: invalid header name {key:?}: {err}"),
+                            }
+                        }
+                    }
+                },
                 ReplSubCommand::Format(format) => {
                     if let Some(format) = format.format {
                         output_format = format;

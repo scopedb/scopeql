@@ -37,16 +37,42 @@ pub enum ReplSubCommand {
     /// Display or set the timing display mode.
     #[command(name = "timer")]
     Timer(CommandTimer),
-    /// Append or clear extra headers for requests.
-    #[command(name = "set-headers")]
-    SetHeaders(CommandSetHeaders),
+    /// Display or manage extra headers for requests.
+    #[command(name = "headers")]
+    Headers(CommandHeaders),
 }
 
 #[derive(Debug, Parser)]
-pub struct CommandSetHeaders {
-    /// The header to set in 'KEY: VALUE' format; if not specified, clear all custom headers.
+pub struct CommandHeaders {
+    #[command(subcommand)]
+    pub action: Option<HeadersAction>,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum HeadersAction {
+    /// Set a header, overwriting any existing value for the same key.
+    #[command(name = "set")]
+    Set(HeadersSet),
+    /// Unset a header by key, or all custom headers if --all is given.
+    #[command(name = "unset")]
+    Unset(HeadersUnset),
+}
+
+#[derive(Debug, Parser)]
+pub struct HeadersSet {
+    /// The header to set in 'KEY: VALUE' format.
     #[arg(value_name = "HEADER")]
-    pub header: Option<String>,
+    pub header: String,
+}
+
+#[derive(Debug, Parser)]
+pub struct HeadersUnset {
+    /// The header key to remove.
+    #[arg(value_name = "KEY", required_unless_present = "all")]
+    pub key: Option<String>,
+    /// Remove all custom headers.
+    #[arg(long)]
+    pub all: bool,
 }
 
 #[derive(Debug, Parser)]

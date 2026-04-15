@@ -46,7 +46,12 @@ pub fn load(
     let connection = config
         .get_default_connection()
         .expect("no default connection in config");
-    let client = ScopeQLClient::from_connection(connection).with_headers(headers);
+    let mut client = ScopeQLClient::from_connection(connection);
+    for (key, value) in headers {
+        if let Some(key) = key {
+            client.set_header(key, value);
+        }
+    }
 
     let format = match format {
         Some(format) => format,

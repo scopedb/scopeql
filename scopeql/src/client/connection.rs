@@ -64,12 +64,20 @@ impl Client {
         }
     }
 
-    pub fn append_header(&mut self, key: HeaderName, value: HeaderValue) {
-        self.custom_headers.append(key, value);
+    pub fn set_header(&mut self, key: HeaderName, value: HeaderValue) {
+        self.custom_headers.insert(key, value);
     }
 
-    pub fn set_headers(&mut self, headers: HeaderMap) {
-        self.custom_headers = headers;
+    pub fn unset_header(&mut self, key: &HeaderName) {
+        self.custom_headers.remove(key);
+    }
+
+    pub fn clear_headers(&mut self) {
+        self.custom_headers.clear();
+    }
+
+    pub fn custom_headers(&self) -> &HeaderMap {
+        &self.custom_headers
     }
 
     #[fastrace::trace]
