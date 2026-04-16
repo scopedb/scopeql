@@ -20,7 +20,7 @@ use crate::command::OutputFormat;
 use crate::global::rt;
 
 #[derive(Debug, Parser)]
-#[command(multicall = true, disable_help_subcommand = true)]
+#[command(name = "", disable_help_subcommand = true)]
 pub struct ReplCommand {
     #[command(subcommand)]
     pub cmd: ReplSubCommand,

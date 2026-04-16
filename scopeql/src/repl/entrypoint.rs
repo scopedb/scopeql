@@ -122,13 +122,14 @@ pub fn entrypoint(config: &Config, headers: HeaderMap) {
 
         // special repl command
         if input.starts_with("/") {
-            let args = match cmdlex::split(input) {
+            let mut args = match cmdlex::split(input) {
                 Ok(args) => args,
                 Err(err) => {
                     eprintln!("error: failed to parse repl command: {err}");
                     continue;
                 }
             };
+            args.insert(0, String::new());
 
             let cmd = match ReplCommand::try_parse_from(args) {
                 Ok(cmd) => cmd,
@@ -200,7 +201,7 @@ pub fn entrypoint(config: &Config, headers: HeaderMap) {
                         .max()
                         .unwrap_or(0);
 
-                    println!("Command:\n");
+                    println!("Commands:");
                     for subcommand in cmd.get_subcommands() {
                         let mut message = format!("  {:width$}", subcommand.get_name());
                         if let Some(about) = subcommand.get_about() {
