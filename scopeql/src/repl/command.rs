@@ -29,19 +29,19 @@ pub struct ReplCommand {
 #[derive(Debug, Subcommand)]
 pub enum ReplSubCommand {
     /// Cancel the statement with the given ID.
-    #[command(name = "\\cancel")]
+    #[command(name = "/cancel")]
     Cancel(CommandCancel),
     /// Display or set output format.
-    #[command(name = "\\format")]
+    #[command(name = "/format")]
     Format(CommandFormat),
     /// Display or manage extra headers for requests.
-    #[command(name = "\\headers")]
+    #[command(name = "/headers")]
     Headers(CommandHeaders),
     /// Display or set the timing display mode.
-    #[command(name = "\\timer")]
+    #[command(name = "/timer")]
     Timer(CommandTimer),
     /// Print help.
-    #[command(name = "\\help", alias = "\\?")]
+    #[command(name = "/help", alias = "/?")]
     Help,
 }
 

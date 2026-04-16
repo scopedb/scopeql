@@ -121,20 +121,14 @@ pub fn entrypoint(config: &Config, headers: HeaderMap) {
         let input = input.trim();
 
         // special repl command
-        if let Some(input) = input.strip_prefix("\\") {
-            let mut args = match cmdlex::split(input) {
+        if input.starts_with("/") {
+            let args = match cmdlex::split(input) {
                 Ok(args) => args,
                 Err(err) => {
                     eprintln!("error: failed to parse repl command: {err}");
                     continue;
                 }
             };
-
-            if args.is_empty() {
-                args.push("\\".to_string());
-            } else {
-                args[0] = format!("\\{}", args[0]);
-            }
 
             let cmd = match ReplCommand::try_parse_from(args) {
                 Ok(cmd) => cmd,

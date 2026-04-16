@@ -22,8 +22,12 @@ pub struct ScopeQLValidator;
 
 impl Validator for ScopeQLValidator {
     fn validate(&self, line: &str) -> ValidationResult {
-        if line.trim().starts_with("\\") {
-            return ValidationResult::Complete;
+        if line.trim().starts_with("/") {
+            return if line.ends_with("\\\n") {
+                ValidationResult::Incomplete
+            } else {
+                ValidationResult::Complete
+            };
         }
 
         let Ok(tokens) = run_tokenizer(line) else {
