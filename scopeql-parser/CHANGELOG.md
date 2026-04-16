@@ -4,6 +4,10 @@ All significant changes to the ScopeQL Parser be documented in this file.
 
 ## Unreleased
 
+### Breaking Changes
+
+* Drop "command" feature flag and related tokens (`BackSlack` and `CANCEL`).
+
 ## v0.2.0 (2026-02-13)
 
 ### Breaking Changes
