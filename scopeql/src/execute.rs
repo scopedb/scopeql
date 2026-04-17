@@ -24,7 +24,7 @@ use crate::command::OutputFormat;
 use crate::config::Config;
 use crate::global;
 use crate::global::eprintln_and_error;
-use crate::tokenizer::run_tokenizer;
+use crate::tokenizer::tokenize;
 
 pub fn execute(
     config: &Config,
@@ -120,7 +120,7 @@ fn supports_multi_statement_output(output: OutputFormat, quiet: bool) -> bool {
 }
 
 fn top_level_statements(source: &str) -> exn::Result<Vec<&str>, crate::Error> {
-    let tokens = run_tokenizer(source)?;
+    let tokens = tokenize(source)?;
     let mut statements = vec![];
     let mut start = 0;
     let mut in_transaction = false;

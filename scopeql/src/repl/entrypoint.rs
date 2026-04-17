@@ -52,7 +52,7 @@ use crate::repl::command::TimerMode;
 use crate::repl::highlight::ScopeQLHighlighter;
 use crate::repl::prompt::CommandLinePrompt;
 use crate::repl::validate::ScopeQLValidator;
-use crate::tokenizer::run_tokenizer;
+use crate::tokenizer::tokenize;
 
 fn make_file_history() -> Option<FileBackedHistory> {
     let Some(home_dir) = dirs::home_dir() else {
@@ -214,7 +214,7 @@ pub fn entrypoint(config: &Config, headers: HeaderMap) {
             continue;
         }
 
-        let tokens = match run_tokenizer(input) {
+        let tokens = match tokenize(input) {
             Ok(tokens) => tokens,
             Err(err) => {
                 eprintln!("{err}");

@@ -16,7 +16,7 @@ use reedline::ValidationResult;
 use reedline::Validator;
 use scopeql_parser::TokenKind;
 
-use crate::tokenizer::run_tokenizer;
+use crate::tokenizer::tokenize;
 
 pub struct ScopeQLValidator;
 
@@ -30,7 +30,7 @@ impl Validator for ScopeQLValidator {
             };
         }
 
-        let Ok(tokens) = run_tokenizer(line) else {
+        let Ok(tokens) = tokenize(line) else {
             // throw out the line if it's not valid; handle error in the repl
             return ValidationResult::Complete;
         };

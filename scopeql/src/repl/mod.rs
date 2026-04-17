@@ -20,3 +20,4 @@ mod entrypoint;
 mod highlight;
 mod prompt;
 mod validate;
+mod lexer;
