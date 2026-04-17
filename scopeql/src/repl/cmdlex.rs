@@ -130,12 +130,17 @@ fn parse_unquoted(chars: &mut Peekable<Chars>) -> Result<String, CmdlexError> {
             Some(ch) if ch.is_whitespace() => break,
             Some('\\') => {
                 chars.next();
-                // Outside quotes: backslash-newline is line continuation; otherwise escape any character
+                // Outside quotes: backslash-newline is line continuation; otherwise escape any
+                // character
                 match chars.peek() {
                     Some('\n') => {
                         chars.next(); // consume newline
                         // skip leading whitespace on the continuation line
-                        while chars.peek().map(|c| *c == ' ' || *c == '\t').unwrap_or(false) {
+                        while chars
+                            .peek()
+                            .map(|c| *c == ' ' || *c == '\t')
+                            .unwrap_or(false)
+                        {
                             chars.next();
                         }
                     }
