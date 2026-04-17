@@ -125,7 +125,9 @@ impl CommandCancel {
 
         match output {
             Some(Ok(result)) => println!("{}", serde_json::to_string_pretty(&result).unwrap()),
-            Some(Err(err)) => eprintln!("error: failed to cancel statement {statement_id}: {err}"),
+            Some(Err(err)) => {
+                eprintln!("error: failed to cancel statement {statement_id}: {err:?}")
+            }
             None => println!("interrupted"),
         }
     }

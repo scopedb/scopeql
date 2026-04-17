@@ -24,7 +24,8 @@ pub struct ScopeQLValidator;
 
 impl Validator for ScopeQLValidator {
     fn validate(&self, line: &str) -> ValidationResult {
-        if line.trim().starts_with("/") {
+        let trimmed = line.trim();
+        if trimmed.starts_with("/") && !trimmed.starts_with("/*") {
             return match lex(line) {
                 LexerResult::Complete(_) => ValidationResult::Complete,
                 LexerResult::Incomplete => ValidationResult::Incomplete,

@@ -78,15 +78,13 @@ pub fn entrypoint(config: &Config, headers: HeaderMap) {
     let mut output_format = OutputFormat::Table;
     let mut show_timer = true;
 
-    let mut prompt = CommandLinePrompt::default();
-    let mut client = if endpoint.is_empty() {
+    let (mut client, prompt) = if endpoint.is_empty() {
         eprintln!("error: endpoint is empty");
         return;
     } else {
-        prompt.set_endpoint(Some(endpoint.clone()));
         let mut client = ScopeQLClient::from_connection(connection);
         client.set_headers(headers);
-        client
+        (client, CommandLinePrompt::new(endpoint))
     };
 
     let mut keybindings = default_emacs_keybindings();
@@ -121,7 +119,7 @@ pub fn entrypoint(config: &Config, headers: HeaderMap) {
         let input = input.trim();
 
         // special repl command
-        if input.starts_with("/") {
+        if input.starts_with("/") && !input.starts_with("/*") {
             let mut args = match lexer::lex(input) {
                 lexer::LexerResult::Complete(args) => args,
                 lexer::LexerResult::Incomplete => {
