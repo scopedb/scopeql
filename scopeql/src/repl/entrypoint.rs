@@ -311,13 +311,13 @@ pub fn entrypoint(config: &Config, headers: HeaderMap) {
 
             match output {
                 Some(Ok(output)) => println!("{output}"),
-                Some(Err(err)) => eprintln!("error: statement {statement_id} failed: {err}"),
+                Some(Err(err)) => eprintln!("error: statement {statement_id} failed: {err:?}"),
                 None => {
                     let output = global::rt().block_on(client.cancel_statement(statement_id));
                     match output {
                         Ok(_) => println!("Statement {statement_id} has been cancelled"),
                         Err(err) => {
-                            eprintln!("error: failed to cancel statement {statement_id}: {err}")
+                            eprintln!("error: failed to cancel statement {statement_id}: {err:?}")
                         }
                     }
                 }
