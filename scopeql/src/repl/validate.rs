@@ -16,6 +16,8 @@ use reedline::ValidationResult;
 use reedline::Validator;
 use scopeql_parser::TokenKind;
 
+use crate::repl::lexer::LexerResult;
+use crate::repl::lexer::lex;
 use crate::tokenizer::tokenize;
 
 pub struct ScopeQLValidator;
@@ -23,10 +25,11 @@ pub struct ScopeQLValidator;
 impl Validator for ScopeQLValidator {
     fn validate(&self, line: &str) -> ValidationResult {
         if line.trim().starts_with("/") {
-            return if line.ends_with("\\\n") {
-                ValidationResult::Incomplete
-            } else {
-                ValidationResult::Complete
+            return match lex(line) {
+                LexerResult::Complete(_) => ValidationResult::Complete,
+                LexerResult::Incomplete => ValidationResult::Incomplete,
+                // throw out the line if it's not valid; handle error in the repl
+                LexerResult::UnknownEscape(_) => ValidationResult::Complete,
             };
         }
 

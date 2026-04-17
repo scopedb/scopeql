@@ -43,13 +43,13 @@ use crate::command::OutputFormat;
 use crate::config::Config;
 use crate::global;
 use crate::header::parse_header;
-use crate::repl::cmdlex;
 use crate::repl::command::HeadersAction;
 use crate::repl::command::HeadersUnset;
 use crate::repl::command::ReplCommand;
 use crate::repl::command::ReplSubCommand;
 use crate::repl::command::TimerMode;
 use crate::repl::highlight::ScopeQLHighlighter;
+use crate::repl::lexer;
 use crate::repl::prompt::CommandLinePrompt;
 use crate::repl::validate::ScopeQLValidator;
 use crate::tokenizer::tokenize;
@@ -122,10 +122,14 @@ pub fn entrypoint(config: &Config, headers: HeaderMap) {
 
         // special repl command
         if input.starts_with("/") {
-            let mut args = match cmdlex::split(input) {
-                Ok(args) => args,
-                Err(err) => {
-                    eprintln!("error: failed to parse repl command: {err}");
+            let mut args = match lexer::lex(input) {
+                lexer::LexerResult::Complete(args) => args,
+                lexer::LexerResult::Incomplete => {
+                    eprintln!("error: failed to parse incomplete repl command");
+                    continue;
+                }
+                lexer::LexerResult::UnknownEscape(ch) => {
+                    eprintln!("error: failed to parse unknown escape char: \\{ch}");
                     continue;
                 }
             };
