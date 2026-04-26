@@ -38,6 +38,7 @@ default_connection = "default"
 [connections.default]
 endpoint = "https://<cell>.<provider>.scopedb.cloud"
 api_key = "your-api-key"
+headers = ["X-Tenant: acme"]
 ```
 
 You can also override connection settings with environment variables such as `SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_ENDPOINT` and `SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_API_KEY`.

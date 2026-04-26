@@ -71,6 +71,18 @@ fn apply_env_overrides(config: &mut DocumentMut, env: impl IntoIterator<Item = (
 
         if let Some(name) = path
             .strip_prefix("connections_")
+            .and_then(|path| path.strip_suffix("_headers"))
+        {
+            set_toml_path(
+                config,
+                &["connections", name, "headers"],
+                toml_edit::value(parse_env_headers(&value)),
+            );
+            continue;
+        }
+
+        if let Some(name) = path
+            .strip_prefix("connections_")
             .and_then(|path| path.strip_suffix("_endpoint"))
         {
             set_toml_path(
@@ -95,6 +107,14 @@ fn apply_env_overrides(config: &mut DocumentMut, env: impl IntoIterator<Item = (
 
         log::warn!("ignore unknown environment variable {path} with value {value}");
     }
+}
+
+fn parse_env_headers(value: &str) -> toml_edit::Array {
+    let mut headers = toml_edit::Array::default();
+    for header in value.lines().map(str::trim).filter(|line| !line.is_empty()) {
+        headers.push(header);
+    }
+    headers
 }
 
 fn set_toml_path(doc: &mut DocumentMut, parts: &[&str], value: toml_edit::Item) {
@@ -138,6 +158,7 @@ impl Default for Config {
                 ConnectionSpec {
                     endpoint: "http://127.0.0.1:6543".to_string(),
                     api_key: None,
+                    headers: vec![],
                 },
             )]),
         }
@@ -151,6 +172,10 @@ pub struct ConnectionSpec {
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     api_key: Option<String>,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    headers: Vec<String>,
 }
 
 impl ConnectionSpec {
@@ -163,6 +188,10 @@ impl ConnectionSpec {
             .as_deref()
             .filter(|api_key| !api_key.is_empty())
     }
+
+    pub fn headers(&self) -> &[String] {
+        &self.headers
+    }
 }
 
 #[cfg(test)]
@@ -174,6 +203,7 @@ mod tests {
         let connection = ConnectionSpec {
             endpoint: "http://127.0.0.1:6543".to_string(),
             api_key: Some(String::new()),
+            headers: vec![],
         };
 
         assert_eq!(connection.api_key(), None);
@@ -201,6 +231,28 @@ api_key = "test-api-key"
     }
 
     #[test]
+    fn config_deserializes_connection_headers() {
+        let config: Config = toml::from_str(
+            r#"
+default_connection = "default"
+
+[connections.default]
+endpoint = "http://127.0.0.1:6543"
+headers = ["X-Tenant: acme"]
+"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            config
+                .get_default_connection()
+                .map(ConnectionSpec::headers)
+                .unwrap_or_default(),
+            ["X-Tenant: acme"]
+        );
+    }
+
+    #[test]
     fn env_overrides_can_set_connection_api_key() {
         let content = toml::to_string(&Config::default()).unwrap();
         let mut doc = DocumentMut::from_str(&content).unwrap();
@@ -219,6 +271,52 @@ api_key = "test-api-key"
                 .get_default_connection()
                 .and_then(ConnectionSpec::api_key),
             Some("test-api-key")
+        );
+    }
+
+    #[test]
+    fn env_overrides_can_set_connection_header() {
+        let content = toml::to_string(&Config::default()).unwrap();
+        let mut doc = DocumentMut::from_str(&content).unwrap();
+
+        apply_env_overrides(
+            &mut doc,
+            [(
+                "SCOPEQL_CONFIG_CONNECTIONS_DEFAULT_HEADERS".to_string(),
+                "X-Tenant: acme".to_string(),
+            )],
+        );
+
+        let config = Config::deserialize(doc.into_deserializer()).unwrap();
+        assert_eq!(
+            config
+                .get_default_connection()
+                .map(ConnectionSpec::headers)
+                .unwrap_or_default(),
+            ["X-Tenant: acme"]
+        );
+    }
+
+    #[test]
+    fn env_overrides_can_set_multiple_connection_headers() {
+        let content = toml::to_string(&Config::default()).unwrap();
+        let mut doc = DocumentMut::from_str(&content).unwrap();
+
+        apply_env_overrides(
+            &mut doc,
+            [(
+                "SCOPEQL_CONFIG_CONNECTIONS_DEFAULT_HEADERS".to_string(),
+                "X-Tenant: acme\nX-Trace: demo".to_string(),
+            )],
+        );
+
+        let config = Config::deserialize(doc.into_deserializer()).unwrap();
+        assert_eq!(
+            config
+                .get_default_connection()
+                .map(ConnectionSpec::headers)
+                .unwrap_or_default(),
+            ["X-Tenant: acme", "X-Trace: demo"]
         );
     }
 }
