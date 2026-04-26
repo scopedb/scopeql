@@ -17,7 +17,7 @@ use nu_ansi_term::Style;
 use reedline::Highlighter;
 use reedline::StyledText;
 
-use crate::tokenizer::run_tokenizer;
+use crate::tokenizer::tokenize;
 
 pub struct ScopeQLHighlighter;
 
@@ -25,7 +25,7 @@ impl Highlighter for ScopeQLHighlighter {
     fn highlight(&self, line: &str, _cursor: usize) -> StyledText {
         let mut styled_text = StyledText::new();
         styled_text.push((Style::default(), line.to_owned()));
-        if let Ok(tokens) = run_tokenizer(line) {
+        if let Ok(tokens) = tokenize(line) {
             for token in tokens {
                 if token.kind.is_literal() {
                     styled_text.style_range(

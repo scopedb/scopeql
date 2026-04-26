@@ -20,7 +20,7 @@ use crate::command::OutputFormat;
 use crate::global::rt;
 
 #[derive(Debug, Parser)]
-#[command(multicall = true, disable_help_subcommand = true)]
+#[command(name = "", disable_help_subcommand = true)]
 pub struct ReplCommand {
     #[command(subcommand)]
     pub cmd: ReplSubCommand,
@@ -29,19 +29,19 @@ pub struct ReplCommand {
 #[derive(Debug, Subcommand)]
 pub enum ReplSubCommand {
     /// Cancel the statement with the given ID.
-    #[command(name = "\\cancel")]
+    #[command(name = "/cancel")]
     Cancel(CommandCancel),
     /// Display or set output format.
-    #[command(name = "\\format")]
+    #[command(name = "/format")]
     Format(CommandFormat),
     /// Display or manage extra headers for requests.
-    #[command(name = "\\headers")]
+    #[command(name = "/headers")]
     Headers(CommandHeaders),
     /// Display or set the timing display mode.
-    #[command(name = "\\timer")]
+    #[command(name = "/timer")]
     Timer(CommandTimer),
     /// Print help.
-    #[command(name = "\\help", alias = "\\?")]
+    #[command(name = "/help", alias = "/?")]
     Help,
 }
 
@@ -125,7 +125,9 @@ impl CommandCancel {
 
         match output {
             Some(Ok(result)) => println!("{}", serde_json::to_string_pretty(&result).unwrap()),
-            Some(Err(err)) => eprintln!("error: failed to cancel statement {statement_id}: {err}"),
+            Some(Err(err)) => {
+                eprintln!("error: failed to cancel statement {statement_id}: {err:?}")
+            }
             None => println!("interrupted"),
         }
     }

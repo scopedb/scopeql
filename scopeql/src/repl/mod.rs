@@ -14,9 +14,9 @@
 
 pub use entrypoint::entrypoint;
 
-mod cmdlex;
 mod command;
 mod entrypoint;
 mod highlight;
+mod lexer;
 mod prompt;
 mod validate;

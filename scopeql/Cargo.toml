@@ -54,7 +54,7 @@ reqwest = { version = "0.13.2", default-features = false, features = [
   "system-proxy",
   "query",
 ] }
-scopeql-parser = { workspace = true, features = ["command"] }
+scopeql-parser = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", features = [
   "unbounded_depth",
