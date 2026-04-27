@@ -38,9 +38,10 @@ default_connection = "default"
 [connections.default]
 endpoint = "https://<cell>.<provider>.scopedb.cloud"
 api_key = "your-api-key"
+headers = ["X-Tenant: acme"]
 ```
 
-You can also override connection settings with environment variables such as `SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_ENDPOINT` and `SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_API_KEY`.
+You can also override connection settings with environment variables such as `SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_ENDPOINT`, `SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_API_KEY`, and `SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_HEADERS`. The `SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_HEADERS` value should use newline-separated `KEY: VALUE` entries, matching the `headers = ["KEY: VALUE"]` TOML format.
 
 ## License
 

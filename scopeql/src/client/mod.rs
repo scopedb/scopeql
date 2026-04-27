@@ -57,9 +57,15 @@ impl ScopeQLClient {
         let endpoint = connection.endpoint().to_owned();
         let api_key = connection.api_key().map(str::to_owned);
 
-        ScopeQLClient {
+        let mut client = ScopeQLClient {
             client: Client::new(endpoint, client, api_key).unwrap(),
-        }
+        };
+
+        let headers = crate::header::parse_headers(connection.headers())
+            .unwrap_or_else(|err| panic!("invalid headers in config: {err}"));
+        client.set_headers(headers);
+
+        client
     }
 
     pub fn set_headers(&mut self, headers: HeaderMap) {
