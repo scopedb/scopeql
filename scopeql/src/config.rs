@@ -275,7 +275,7 @@ headers = ["X-Tenant: acme"]
     }
 
     #[test]
-    fn env_overrides_can_set_connection_header() {
+    fn env_overrides_can_set_connection_headers() {
         let content = toml::to_string(&Config::default()).unwrap();
         let mut doc = DocumentMut::from_str(&content).unwrap();
 
