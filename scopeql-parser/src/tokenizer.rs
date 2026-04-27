@@ -366,14 +366,6 @@ pub enum TokenKind {
     WITHIN,
     #[token("XOR", ignore(case))]
     XOR,
-
-    // Command-line only tokens
-    #[cfg(feature = "command")]
-    #[token("\\")]
-    BackSlash,
-    #[cfg(feature = "command")]
-    #[token("CANCEL", ignore(case))]
-    CANCEL,
 }
 
 impl TokenKind {
@@ -392,11 +384,6 @@ impl TokenKind {
 
     pub fn is_symbol(&self) -> bool {
         use TokenKind::*;
-
-        #[cfg(feature = "command")]
-        if matches!(self, BackSlash) {
-            return true;
-        }
 
         matches!(
             self,

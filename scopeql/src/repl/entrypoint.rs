@@ -43,16 +43,16 @@ use crate::command::OutputFormat;
 use crate::config::Config;
 use crate::global;
 use crate::header::parse_header;
-use crate::repl::cmdlex;
 use crate::repl::command::HeadersAction;
 use crate::repl::command::HeadersUnset;
 use crate::repl::command::ReplCommand;
 use crate::repl::command::ReplSubCommand;
 use crate::repl::command::TimerMode;
 use crate::repl::highlight::ScopeQLHighlighter;
+use crate::repl::lexer;
 use crate::repl::prompt::CommandLinePrompt;
 use crate::repl::validate::ScopeQLValidator;
-use crate::tokenizer::run_tokenizer;
+use crate::tokenizer::tokenize;
 
 fn make_file_history() -> Option<FileBackedHistory> {
     let Some(home_dir) = dirs::home_dir() else {
@@ -78,15 +78,13 @@ pub fn entrypoint(config: &Config, headers: HeaderMap) {
     let mut output_format = OutputFormat::Table;
     let mut show_timer = true;
 
-    let mut prompt = CommandLinePrompt::default();
-    let mut client = if endpoint.is_empty() {
+    let (mut client, prompt) = if endpoint.is_empty() {
         eprintln!("error: endpoint is empty");
         return;
     } else {
-        prompt.set_endpoint(Some(endpoint.clone()));
         let mut client = ScopeQLClient::from_connection(connection);
         client.set_headers(headers);
-        client
+        (client, CommandLinePrompt::new(endpoint))
     };
 
     let mut keybindings = default_emacs_keybindings();
@@ -121,20 +119,19 @@ pub fn entrypoint(config: &Config, headers: HeaderMap) {
         let input = input.trim();
 
         // special repl command
-        if let Some(input) = input.strip_prefix("\\") {
-            let mut args = match cmdlex::split(input) {
-                Ok(args) => args,
-                Err(err) => {
-                    eprintln!("error: failed to parse repl command: {err}");
+        if input.starts_with("/") && !input.starts_with("/*") {
+            let mut args = match lexer::lex(input) {
+                lexer::LexerResult::Complete(args) => args,
+                lexer::LexerResult::Incomplete => {
+                    eprintln!("error: failed to parse incomplete repl command");
+                    continue;
+                }
+                lexer::LexerResult::UnknownEscape(ch) => {
+                    eprintln!("error: failed to parse unknown escape char: \\{ch}");
                     continue;
                 }
             };
-
-            if args.is_empty() {
-                args.push("\\".to_string());
-            } else {
-                args[0] = format!("\\{}", args[0]);
-            }
+            args.insert(0, String::new());
 
             let cmd = match ReplCommand::try_parse_from(args) {
                 Ok(cmd) => cmd,
@@ -206,7 +203,7 @@ pub fn entrypoint(config: &Config, headers: HeaderMap) {
                         .max()
                         .unwrap_or(0);
 
-                    println!("Command:\n");
+                    println!("Commands:");
                     for subcommand in cmd.get_subcommands() {
                         let mut message = format!("  {:width$}", subcommand.get_name());
                         if let Some(about) = subcommand.get_about() {
@@ -219,7 +216,7 @@ pub fn entrypoint(config: &Config, headers: HeaderMap) {
             continue;
         }
 
-        let tokens = match run_tokenizer(input) {
+        let tokens = match tokenize(input) {
             Ok(tokens) => tokens,
             Err(err) => {
                 eprintln!("{err}");
@@ -316,13 +313,13 @@ pub fn entrypoint(config: &Config, headers: HeaderMap) {
 
             match output {
                 Some(Ok(output)) => println!("{output}"),
-                Some(Err(err)) => eprintln!("error: statement {statement_id} failed: {err}"),
+                Some(Err(err)) => eprintln!("error: statement {statement_id} failed: {err:?}"),
                 None => {
                     let output = global::rt().block_on(client.cancel_statement(statement_id));
                     match output {
                         Ok(_) => println!("Statement {statement_id} has been cancelled"),
                         Err(err) => {
-                            eprintln!("error: failed to cancel statement {statement_id}: {err}")
+                            eprintln!("error: failed to cancel statement {statement_id}: {err:?}")
                         }
                     }
                 }

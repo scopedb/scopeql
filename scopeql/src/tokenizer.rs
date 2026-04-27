@@ -28,7 +28,7 @@ pub struct Token<'a> {
     pub span: Range<usize>,
 }
 
-pub fn run_tokenizer(source: &'_ str) -> Result<Vec<Token<'_>>, Error> {
+pub fn tokenize(source: &'_ str) -> Result<Vec<Token<'_>>, Error> {
     let mut tokens = vec![];
     let mut tokenizer = Tokenizer::new(source);
     while let Some(token) = tokenizer.next() {

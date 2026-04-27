@@ -19,31 +19,24 @@ use reedline::PromptEditMode;
 use reedline::PromptHistorySearch;
 use reedline::PromptHistorySearchStatus;
 
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct CommandLinePrompt {
-    endpoint: Option<String>,
+    endpoint: String,
 }
 
 impl CommandLinePrompt {
-    pub fn set_endpoint(&mut self, endpoint: Option<String>) {
-        self.endpoint = endpoint;
+    pub fn new(endpoint: String) -> Self {
+        Self { endpoint }
     }
 
     fn prompt_len(&self) -> usize {
-        "scopeql[]".len()
-            + match self.endpoint {
-                None => "no-connect".len(),
-                Some(ref endpoint) => endpoint.len(),
-            }
+        "scopeql[]".len() + self.endpoint.len()
     }
 }
 
 impl Prompt for CommandLinePrompt {
     fn render_prompt_left(&'_ self) -> Cow<'_, str> {
-        match self.endpoint {
-            Some(ref endpoint) => format!("scopeql[{endpoint}]> ").into(),
-            None => "scopeql[no-connect]> ".into(),
-        }
+        format!("scopeql[{}]> ", self.endpoint).into()
     }
 
     fn render_prompt_right(&'_ self) -> Cow<'_, str> {
