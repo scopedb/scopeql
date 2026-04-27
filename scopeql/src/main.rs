@@ -20,7 +20,6 @@ use clap::Parser;
 use logforth::append::file::FileBuilder;
 use logforth::filter::env_filter::EnvFilterBuilder;
 use logforth::layout::JsonLayout;
-use reqwest::header::HeaderMap;
 
 use crate::command::Command;
 use crate::command::ExecArgs;
@@ -51,33 +50,23 @@ fn main() {
     match cmd.subcommand {
         None => {
             log::info!("starting interactive repl");
-            let ReplArgs {
-                config_file,
-                headers,
-            } = cmd.repl_args;
+            let ReplArgs { config_file } = cmd.repl_args;
             let config = load_config(config_file);
-            let headers = parse_headers(headers);
-            repl::entrypoint(&config, headers);
+            repl::entrypoint(&config);
         }
         Some(Subcommand::Run {
-            args:
-                ExecArgs {
-                    config_file,
-                    quiet,
-                    headers,
-                },
+            args: ExecArgs { config_file, quiet },
             format,
             file,
             statement,
             output_file,
         }) => {
             let config = load_config(config_file);
-            let headers = parse_headers(headers);
             match (file, statement) {
                 (Some(file), None) => match std::fs::read_to_string(&file) {
                     Ok(content) => {
                         log::info!("running scopeql statements from file {}", file.display());
-                        execute::execute(&config, quiet, format, content, output_file, headers);
+                        execute::execute(&config, quiet, format, content, output_file);
                     }
                     Err(err) => {
                         let file = file.display();
@@ -89,7 +78,7 @@ fn main() {
                 },
                 (None, Some(statement)) => {
                     log::info!("running scopeql statements from inline input");
-                    execute::execute(&config, quiet, format, statement, output_file, headers);
+                    execute::execute(&config, quiet, format, statement, output_file);
                 }
                 (None, None) => {
                     eprintln!("error: missing input; provide statement text or use -f/--file");
@@ -102,20 +91,14 @@ fn main() {
             }
         }
         Some(Subcommand::Load {
-            args:
-                ExecArgs {
-                    config_file,
-                    quiet,
-                    headers,
-                },
+            args: ExecArgs { config_file, quiet },
             file,
             transform,
             format,
         }) => {
             log::info!("starting load command for {}", file.display());
             let config = load_config(config_file);
-            let headers = parse_headers(headers);
-            load::load(&config, quiet, file, transform, format, headers);
+            load::load(&config, quiet, file, transform, format);
         }
         Some(Subcommand::Generate {
             target,
@@ -140,17 +123,6 @@ fn main() {
             } else {
                 println!("{content}");
             }
-        }
-    }
-}
-
-#[track_caller]
-fn parse_headers(headers: Vec<String>) -> HeaderMap {
-    match header::parse_headers(&headers) {
-        Ok(headers) => headers,
-        Err(err) => {
-            eprintln_and_error(format_args!("invalid headers: {err}"));
-            std::process::exit(1);
         }
     }
 }

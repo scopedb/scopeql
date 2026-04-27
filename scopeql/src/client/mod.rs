@@ -17,9 +17,6 @@ use std::time::Duration;
 use exn::Result;
 use exn::ResultExt;
 use exn::bail;
-use reqwest::header::HeaderMap;
-use reqwest::header::HeaderName;
-use reqwest::header::HeaderValue;
 use uuid::Uuid;
 
 use crate::Error;
@@ -56,40 +53,12 @@ impl ScopeQLClient {
 
         let endpoint = connection.endpoint().to_owned();
         let api_key = connection.api_key().map(str::to_owned);
-
-        let mut client = ScopeQLClient {
-            client: Client::new(endpoint, client, api_key).unwrap(),
-        };
-
         let headers = crate::header::parse_headers(connection.headers())
             .unwrap_or_else(|err| panic!("invalid headers in config: {err}"));
-        client.set_headers(headers);
 
-        client
-    }
-
-    pub fn set_headers(&mut self, headers: HeaderMap) {
-        for (key, value) in headers {
-            if let Some(key) = key {
-                self.set_header(key, value);
-            }
+        ScopeQLClient {
+            client: Client::new(endpoint, client, api_key, headers).unwrap(),
         }
-    }
-
-    pub fn set_header(&mut self, key: HeaderName, value: HeaderValue) {
-        self.client.mut_extra_headers().insert(key, value);
-    }
-
-    pub fn unset_header(&mut self, key: &HeaderName) {
-        self.client.mut_extra_headers().remove(key);
-    }
-
-    pub fn unset_all_headers(&mut self) {
-        self.client.mut_extra_headers().clear();
-    }
-
-    pub fn extra_headers(&self) -> &HeaderMap {
-        self.client.extra_headers()
     }
 
     pub async fn load_jsonlines(

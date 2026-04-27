@@ -44,9 +44,6 @@ pub struct ReplArgs {
     /// Run `scopeql` with the given config file.
     #[clap(long, value_hint = ValueHint::FilePath, value_name = "FILE")]
     pub config_file: Option<PathBuf>,
-    /// Extra headers to include in HTTP requests.
-    #[clap(long = "header", value_name = "KEY: VALUE")]
-    pub headers: Vec<String>,
 }
 
 /// Shared arguments for commands that execute scopeql statements.
@@ -59,10 +56,6 @@ pub struct ExecArgs {
     /// Suppress normal output.
     #[clap(short, long, alias = "silent", default_value = "false")]
     pub quiet: bool,
-
-    /// Extra headers to include in HTTP requests.
-    #[clap(long = "header", value_name = "KEY: VALUE")]
-    pub headers: Vec<String>,
 }
 
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]

@@ -37,7 +37,7 @@ pub fn parse_header(s: &str) -> Result<(HeaderName, HeaderValue), Error> {
     Ok((key, value))
 }
 
-/// Parse multiple header strings from CLI arguments.
+/// Parse multiple header strings.
 pub fn parse_headers(headers: &[String]) -> Result<HeaderMap, Error> {
     let mut map = HeaderMap::new();
     for h in headers {
