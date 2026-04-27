@@ -21,7 +21,6 @@ use std::path::PathBuf;
 use csv::ReaderBuilder;
 use exn::Result;
 use exn::ResultExt;
-use reqwest::header::HeaderMap;
 
 use crate::Error;
 use crate::client::ScopeQLClient;
@@ -41,13 +40,11 @@ pub fn load(
     file: PathBuf,
     transform: String,
     format: Option<DataFormat>,
-    headers: HeaderMap,
 ) {
     let connection = config
         .get_default_connection()
         .expect("no default connection in config");
-    let mut client = ScopeQLClient::from_connection(connection);
-    client.set_headers(headers);
+    let client = ScopeQLClient::from_connection(connection);
 
     let format = match format {
         Some(format) => format,

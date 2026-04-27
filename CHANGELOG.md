@@ -4,6 +4,14 @@ All significant changes to this software be documented in this file.
 
 ## Unreleased
 
+### Breaking Changes
+
+* Remove `--header` options and the REPL `/headers` command.
+
+### New Features
+
+* Allow custom HTTP headers to be configured through connection configuration or `SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_HEADERS`.
+
 ## v0.5.1 (2026-04-15)
 
 ### New Features

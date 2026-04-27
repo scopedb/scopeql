@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use std::fmt::Write;
-use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -34,17 +33,12 @@ use reedline::Reedline;
 use reedline::ReedlineEvent;
 use reedline::Signal;
 use reedline::default_emacs_keybindings;
-use reqwest::header::HeaderMap;
-use reqwest::header::HeaderName;
 use scopeql_parser::TokenKind;
 
 use crate::client::ScopeQLClient;
 use crate::command::OutputFormat;
 use crate::config::Config;
 use crate::global;
-use crate::header::parse_header;
-use crate::repl::command::HeadersAction;
-use crate::repl::command::HeadersUnset;
 use crate::repl::command::ReplCommand;
 use crate::repl::command::ReplSubCommand;
 use crate::repl::command::TimerMode;
@@ -70,7 +64,7 @@ fn make_file_history() -> Option<FileBackedHistory> {
     }
 }
 
-pub fn entrypoint(config: &Config, headers: HeaderMap) {
+pub fn entrypoint(config: &Config) {
     let connection = config
         .get_default_connection()
         .expect("no default connection in config");
@@ -78,12 +72,11 @@ pub fn entrypoint(config: &Config, headers: HeaderMap) {
     let mut output_format = OutputFormat::Table;
     let mut show_timer = true;
 
-    let (mut client, prompt) = if endpoint.is_empty() {
+    let (client, prompt) = if endpoint.is_empty() {
         eprintln!("error: endpoint is empty");
         return;
     } else {
-        let mut client = ScopeQLClient::from_connection(connection);
-        client.set_headers(headers);
+        let client = ScopeQLClient::from_connection(connection);
         (client, CommandLinePrompt::new(endpoint))
     };
 
@@ -143,38 +136,6 @@ pub fn entrypoint(config: &Config, headers: HeaderMap) {
 
             match cmd.cmd {
                 ReplSubCommand::Cancel(cancel) => cancel.run(&client),
-                ReplSubCommand::Headers(cmd) => match cmd.action {
-                    None => {
-                        let headers = client.extra_headers();
-                        if headers.is_empty() {
-                            println!("no extra headers set");
-                        } else {
-                            for (key, value) in headers {
-                                println!("{key}: {value:?}");
-                            }
-                        }
-                    }
-                    Some(HeadersAction::Set(set)) => match parse_header(&set.header) {
-                        Ok((key, value)) => {
-                            println!("set header: {key}={value:?}");
-                            client.set_header(key, value);
-                        }
-                        Err(err) => eprintln!("error: {err}"),
-                    },
-                    Some(HeadersAction::Unset(HeadersUnset { key })) => {
-                        match HeaderName::from_str(&key) {
-                            Ok(key) => {
-                                client.unset_header(&key);
-                                println!("header unset: {key}");
-                            }
-                            Err(err) => eprintln!("error: invalid header name {key}: {err}"),
-                        }
-                    }
-                    Some(HeadersAction::UnsetAll) => {
-                        client.unset_all_headers();
-                        println!("unset all extra headers");
-                    }
-                },
                 ReplSubCommand::Format(format) => {
                     if let Some(format) = format.format {
                         output_format = format;

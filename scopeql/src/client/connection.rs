@@ -42,6 +42,7 @@ impl Client {
         endpoint: E,
         client: reqwest::Client,
         api_key: Option<String>,
+        extra_headers: HeaderMap,
     ) -> Result<Self, Error> {
         let authorization = match api_key.filter(|api_key| !api_key.is_empty()) {
             Some(api_key) => Some(HeaderValue::from_str(&format!("Bearer {api_key}")).map_err(
@@ -57,18 +58,10 @@ impl Client {
                 endpoint,
                 client,
                 authorization,
-                extra_headers: HeaderMap::new(),
+                extra_headers,
             }),
             Err(err) => Err(Error::new("failed to parse endpoint".to_string()).set_source(err)),
         }
-    }
-
-    pub(super) fn mut_extra_headers(&mut self) -> &mut HeaderMap {
-        &mut self.extra_headers
-    }
-
-    pub(super) fn extra_headers(&self) -> &HeaderMap {
-        &self.extra_headers
     }
 
     #[fastrace::trace]
@@ -176,6 +169,7 @@ mod tests {
             "http://127.0.0.1:6543",
             reqwest::Client::new(),
             Some("test-api-key".to_string()),
+            HeaderMap::new(),
         )
         .unwrap();
 
@@ -185,9 +179,31 @@ mod tests {
 
     #[test]
     fn request_headers_omit_authorization_without_api_key() {
-        let client = Client::new("http://127.0.0.1:6543", reqwest::Client::new(), None).unwrap();
+        let client = Client::new(
+            "http://127.0.0.1:6543",
+            reqwest::Client::new(),
+            None,
+            HeaderMap::new(),
+        )
+        .unwrap();
 
         let headers = client.request_headers();
         assert!(headers.get(AUTHORIZATION).is_none());
+    }
+
+    #[test]
+    fn request_headers_include_extra_headers() {
+        let mut extra_headers = HeaderMap::new();
+        extra_headers.insert("x-tenant", HeaderValue::from_static("acme"));
+        let client = Client::new(
+            "http://127.0.0.1:6543",
+            reqwest::Client::new(),
+            None,
+            extra_headers,
+        )
+        .unwrap();
+
+        let headers = client.request_headers();
+        assert_eq!(headers.get("x-tenant").unwrap(), "acme");
     }
 }
