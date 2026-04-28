@@ -27,10 +27,8 @@ permissions:
 
 jobs:
   precondition:
-    if: ${{ github.repository == 'scopedb/scopeql' }}
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: ./.github/workflows/release-preconditions.yml
+    uses: ./.github/workflows/release-preconditions.yml
+    secrets: inherit
 
   sdist:
     needs: [ precondition ]
