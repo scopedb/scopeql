@@ -35,6 +35,8 @@ targets = [
 install-path = "CARGO_HOME"
 # Whether to install an updater program
 install-updater = false
+# Plan jobs to run in CI
+plan-jobs = ["./release-preconditions"]
 
 [workspace.metadata.dist.github-custom-runners]
 aarch64-apple-darwin = "macos-14"
