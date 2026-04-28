@@ -28,13 +28,13 @@ pub struct ReplCommand {
 
 #[derive(Debug, Subcommand)]
 pub enum ReplSubCommand {
-    /// Display or switch connection profile.
+    /// Switch connection profile.
     #[command(name = "/connection")]
     Connection(CommandConnection),
-    /// Display or set output format.
+    /// Set output format.
     #[command(name = "/format")]
     Format(CommandFormat),
-    /// Display or set the timing display mode.
+    /// Enable or disable timing display.
     #[command(name = "/timer")]
     Timer(CommandTimer),
     /// Cancel the statement with the given ID.
@@ -54,16 +54,16 @@ pub struct CommandConnection {
 
 #[derive(Debug, Parser)]
 pub struct CommandFormat {
-    /// The output format to use; if not specified, show the current format.
+    /// The output format to use.
     #[arg(value_enum, value_name = "FORMAT")]
-    pub format: Option<OutputFormat>,
+    pub format: OutputFormat,
 }
 
 #[derive(Debug, Parser)]
 pub struct CommandTimer {
-    /// Enable or disable timing display; if not specified, show the current mode.
+    /// Enable or disable timing display.
     #[arg(value_enum)]
-    pub mode: Option<TimerMode>,
+    pub mode: TimerMode,
 }
 
 #[derive(Debug, Clone, Copy, clap::ValueEnum)]

@@ -14,6 +14,7 @@
 
 use std::fmt::Write;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::time::Duration;
 
 use clap::CommandFactory;
@@ -45,6 +46,8 @@ use crate::repl::command::TimerMode;
 use crate::repl::highlight::ScopeQLHighlighter;
 use crate::repl::lexer;
 use crate::repl::prompt::CommandLinePrompt;
+use crate::repl::prompt::PromptRenderState;
+use crate::repl::prompt::StatusHinter;
 use crate::repl::validate::ScopeQLValidator;
 use crate::tokenizer::tokenize;
 
@@ -70,11 +73,27 @@ fn make_file_history() -> Option<FileBackedHistory> {
     }
 }
 
+fn prompt_status_line(
+    connection_name: &str,
+    endpoint: &str,
+    output_format: OutputFormat,
+    show_timer: bool,
+) -> String {
+    format!(
+        "{} · {} · {} · timer {}",
+        connection_name,
+        endpoint,
+        output_format.as_str(),
+        if show_timer { "on" } else { "off" },
+    )
+}
+
 pub struct ReplState<'a> {
     pub config: &'a Config,
     pub connection_name: String,
     pub client: ScopeQLClient,
     pub prompt: CommandLinePrompt,
+    pub prompt_state: Arc<Mutex<PromptRenderState>>,
     pub output_format: OutputFormat,
     pub show_timer: bool,
 }
@@ -85,15 +104,53 @@ impl<'a> ReplState<'a> {
         let connection = config
             .get_connection(&connection_name)
             .expect("no default connection in config");
+        let output_format = OutputFormat::Table;
+        let show_timer = true;
+        let prompt_state = Arc::new(Mutex::new(PromptRenderState::new(prompt_status_line(
+            &connection_name,
+            connection.endpoint(),
+            output_format,
+            show_timer,
+        ))));
 
         Self {
             config,
             connection_name,
             client: ScopeQLClient::from_connection(connection),
-            prompt: CommandLinePrompt::new(connection.endpoint().to_string()),
-            output_format: OutputFormat::Table,
-            show_timer: true,
+            prompt: CommandLinePrompt::new(Arc::clone(&prompt_state)),
+            prompt_state,
+            output_format,
+            show_timer,
         }
+    }
+
+    fn endpoint(&self) -> &str {
+        self.config
+            .get_connection(&self.connection_name)
+            .map(|connection| connection.endpoint())
+            .unwrap_or_default()
+    }
+
+    fn refresh_prompt_status(&self) {
+        self.prompt_state
+            .lock()
+            .unwrap()
+            .set_line(prompt_status_line(
+                &self.connection_name,
+                self.endpoint(),
+                self.output_format,
+                self.show_timer,
+            ));
+    }
+
+    fn set_output_format(&mut self, output_format: OutputFormat) {
+        self.output_format = output_format;
+        self.refresh_prompt_status();
+    }
+
+    fn set_show_timer(&mut self, show_timer: bool) {
+        self.show_timer = show_timer;
+        self.refresh_prompt_status();
     }
 
     fn switch_connection(&mut self, name: String) -> Result<(), String> {
@@ -109,8 +166,8 @@ impl<'a> ReplState<'a> {
         };
 
         self.client = ScopeQLClient::from_connection(connection);
-        self.prompt = CommandLinePrompt::new(connection.endpoint().to_string());
         self.connection_name = name;
+        self.refresh_prompt_status();
         Ok(())
     }
 }
@@ -135,7 +192,10 @@ pub fn entrypoint(config: &Config) {
         ReedlineEvent::ExecuteHostCommand(CTRL_D_PROMPT_COMMAND.to_owned()),
     );
 
-    let hinter = DefaultHinter::default().with_style(Style::new().fg(Color::DarkGray));
+    let hinter = StatusHinter::new(
+        DefaultHinter::default().with_style(Style::new().fg(Color::DarkGray)),
+        Arc::clone(&repl.prompt_state),
+    );
 
     let mut line_editor = Reedline::create()
         .use_bracketed_paste(true)
@@ -165,7 +225,7 @@ pub fn entrypoint(config: &Config) {
                 }
             }
             Signal::Success(input) => input,
-            Signal::CtrlC | Signal::CtrlD | Signal::ExternalBreak(_) | _ => {
+            _ => {
                 println!();
                 break;
             }
@@ -204,25 +264,20 @@ pub fn entrypoint(config: &Config) {
                     println!(
                         "Connection is set to {} ({})",
                         repl.connection_name,
-                        repl.prompt.endpoint()
+                        repl.endpoint()
                     );
                 }
                 ReplSubCommand::Format(format) => {
-                    if let Some(format) = format.format {
-                        repl.output_format = format;
-                    }
+                    repl.set_output_format(format.format);
                     println!("Output format is set to {}", repl.output_format.as_str());
                 }
                 ReplSubCommand::Timer(timer) => match timer.mode {
-                    None => {
-                        println!("Timer is {}", if repl.show_timer { "on" } else { "off" });
-                    }
-                    Some(TimerMode::On) => {
-                        repl.show_timer = true;
+                    TimerMode::On => {
+                        repl.set_show_timer(true);
                         println!("Timer is set to on");
                     }
-                    Some(TimerMode::Off) => {
-                        repl.show_timer = false;
+                    TimerMode::Off => {
+                        repl.set_show_timer(false);
                         println!("Timer is set to off");
                     }
                 },
