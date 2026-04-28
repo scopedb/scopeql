@@ -15,29 +15,17 @@
 
 set -o nounset
 
-if [[ "${GITHUB_REF_TYPE}" != "tag" ]]; then
-  echo "GITHUB_REF_TYPE=${GITHUB_REF_TYPE} Not a tag, skipping version check"
-  exit 0
-fi
-
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 PACKAGE_DIR=$( dirname "$SCRIPT_DIR" )
 WORKSPACE_DIR=$( dirname "$PACKAGE_DIR" )
 
-cd "$PACKAGE_DIR"
-VERSION=$( cargo metadata --format-version=1 --no-deps | jq -r '.packages[] | select(.name == "scopeql") | .version' )
-echo "CARGO VERSION: $VERSION"
-echo "GITHUB_REF_NAME: $GITHUB_REF_NAME"
-if [[ "$GITHUB_REF_NAME" != "v$VERSION" ]]; then
-  echo "Version tag does not match the version in Cargo.toml"
-  exit 1
-fi
-
 cd "$WORKSPACE_DIR"
 VERSION=$( cat pyproject.toml | yq -p toml -r '.project.version' )
-echo "PYTHON VERSION: $VERSION"
-echo "GITHUB_REF_NAME: $GITHUB_REF_NAME"
-if [[ "$GITHUB_REF_NAME" != "v$VERSION" ]]; then
-  echo "Version tag does not match the version in pyproject.toml"
-  exit 1
+echo "PREVIOUS PYTHON VERSION: $VERSION"
+
+if [[ "$VERSION" != "$NEW_VERSION" ]]; then
+  echo "Updating version in pyproject.toml to $NEW_VERSION"
+  yq -p toml -o toml -i ".project.version = \"$NEW_VERSION\"" pyproject.toml
+else
+  echo "Version in pyproject.toml already matches the new version, skipping update"
 fi

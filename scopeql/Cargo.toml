@@ -78,5 +78,6 @@ workspace = true
 
 [package.metadata.release]
 pre-release-commit-message = "chore: release v{{version}}"
+pre-release-hook = ["./scripts/edit-pyproject-version.sh"]
 sign-tag = true
 tag-name = "v{{version}}"
