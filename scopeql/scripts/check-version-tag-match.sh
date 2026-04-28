@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set -o nounset
 
 if [[ "${GITHUB_REF_TYPE}" != "tag" ]]; then
   echo "GITHUB_REF_TYPE=${GITHUB_REF_TYPE} Not a tag, skipping version check"

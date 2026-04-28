@@ -33,6 +33,9 @@ unused_must_use = "deny"
 [workspace.lints.clippy]
 dbg_macro = "deny"
 
+[workspace.metadata.release]
+consolidate-commits = false
+
 [profile.release]
 debug = true
 lto = "thin"
