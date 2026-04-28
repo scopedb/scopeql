@@ -32,7 +32,7 @@ use crate::client::protocol::StatementRequest;
 use crate::client::protocol::StatementRequestParams;
 use crate::client::protocol::StatementStatus;
 use crate::command::OutputFormat;
-use crate::config::ConnectionSpec;
+use crate::config::ConnectionConfig;
 use crate::output::format_result_set;
 
 mod connection;
@@ -45,7 +45,7 @@ pub struct ScopeQLClient {
 }
 
 impl ScopeQLClient {
-    pub fn from_connection(connection: &ConnectionSpec) -> Self {
+    pub fn from_connection(connection: &ConnectionConfig) -> Self {
         let client = reqwest::ClientBuilder::new()
             .no_proxy()
             .build()

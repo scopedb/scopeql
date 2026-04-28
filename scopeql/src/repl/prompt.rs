@@ -29,6 +29,10 @@ impl CommandLinePrompt {
         Self { endpoint }
     }
 
+    pub fn endpoint(&self) -> &str {
+        &self.endpoint
+    }
+
     fn prompt_len(&self) -> usize {
         "scopeql[]".len() + self.endpoint.len()
     }

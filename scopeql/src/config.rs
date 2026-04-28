@@ -136,15 +136,23 @@ pub struct Config {
 
     #[serde(default)]
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
-    connections: BTreeMap<String, ConnectionSpec>,
+    connections: BTreeMap<String, ConnectionConfig>,
 }
 
 impl Config {
-    pub fn get_connection(&self, name: &str) -> Option<&ConnectionSpec> {
+    pub fn default_connection_name(&self) -> &str {
+        &self.default_connection
+    }
+
+    pub fn connection_names(&self) -> impl Iterator<Item = &str> {
+        self.connections.keys().map(String::as_str)
+    }
+
+    pub fn get_connection(&self, name: &str) -> Option<&ConnectionConfig> {
         self.connections.get(name)
     }
 
-    pub fn get_default_connection(&self) -> Option<&ConnectionSpec> {
+    pub fn get_default_connection(&self) -> Option<&ConnectionConfig> {
         self.get_connection(&self.default_connection)
     }
 }
@@ -155,7 +163,7 @@ impl Default for Config {
             default_connection: "default".to_string(),
             connections: BTreeMap::from([(
                 "default".to_string(),
-                ConnectionSpec {
+                ConnectionConfig {
                     endpoint: "http://127.0.0.1:6543".to_string(),
                     api_key: None,
                     headers: vec![],
@@ -166,7 +174,7 @@ impl Default for Config {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct ConnectionSpec {
+pub struct ConnectionConfig {
     endpoint: String,
 
     #[serde(default)]
@@ -178,7 +186,7 @@ pub struct ConnectionSpec {
     headers: Vec<String>,
 }
 
-impl ConnectionSpec {
+impl ConnectionConfig {
     pub fn endpoint(&self) -> &str {
         &self.endpoint
     }
@@ -200,7 +208,7 @@ mod tests {
 
     #[test]
     fn connection_api_key_ignores_empty_string() {
-        let connection = ConnectionSpec {
+        let connection = ConnectionConfig {
             endpoint: "http://127.0.0.1:6543".to_string(),
             api_key: Some(String::new()),
             headers: vec![],
@@ -225,7 +233,7 @@ api_key = "test-api-key"
         assert_eq!(
             config
                 .get_default_connection()
-                .and_then(ConnectionSpec::api_key),
+                .and_then(ConnectionConfig::api_key),
             Some("test-api-key")
         );
     }
@@ -246,7 +254,7 @@ headers = ["X-Tenant: acme"]
         assert_eq!(
             config
                 .get_default_connection()
-                .map(ConnectionSpec::headers)
+                .map(ConnectionConfig::headers)
                 .unwrap_or_default(),
             ["X-Tenant: acme"]
         );
@@ -269,7 +277,7 @@ headers = ["X-Tenant: acme"]
         assert_eq!(
             config
                 .get_default_connection()
-                .and_then(ConnectionSpec::api_key),
+                .and_then(ConnectionConfig::api_key),
             Some("test-api-key")
         );
     }
@@ -291,7 +299,7 @@ headers = ["X-Tenant: acme"]
         assert_eq!(
             config
                 .get_default_connection()
-                .map(ConnectionSpec::headers)
+                .map(ConnectionConfig::headers)
                 .unwrap_or_default(),
             ["X-Tenant: acme"]
         );
@@ -314,7 +322,7 @@ headers = ["X-Tenant: acme"]
         assert_eq!(
             config
                 .get_default_connection()
-                .map(ConnectionSpec::headers)
+                .map(ConnectionConfig::headers)
                 .unwrap_or_default(),
             ["X-Tenant: acme", "X-Trace: demo"]
         );

@@ -28,18 +28,28 @@ pub struct ReplCommand {
 
 #[derive(Debug, Subcommand)]
 pub enum ReplSubCommand {
-    /// Cancel the statement with the given ID.
-    #[command(name = "/cancel")]
-    Cancel(CommandCancel),
+    /// Display or switch connection profile.
+    #[command(name = "/connection")]
+    Connection(CommandConnection),
     /// Display or set output format.
     #[command(name = "/format")]
     Format(CommandFormat),
     /// Display or set the timing display mode.
     #[command(name = "/timer")]
     Timer(CommandTimer),
+    /// Cancel the statement with the given ID.
+    #[command(name = "/cancel")]
+    Cancel(CommandCancel),
     /// Print help.
-    #[command(name = "/help", alias = "/?")]
+    #[command(name = "/help")]
     Help,
+}
+
+#[derive(Debug, Parser)]
+pub struct CommandConnection {
+    /// The connection name to use.
+    #[arg(value_name = "NAME")]
+    pub name: String,
 }
 
 #[derive(Debug, Parser)]
