@@ -15,23 +15,18 @@
 
 set -o nounset
 
+if [[ -z "${NEW_VERSION:-}" ]]; then
+  echo "NEW_VERSION must not be empty"
+  exit 1
+fi
+
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 PACKAGE_DIR=$( dirname "$SCRIPT_DIR" )
 WORKSPACE_DIR=$( dirname "$PACKAGE_DIR" )
 
 cd "$WORKSPACE_DIR"
 
-update_pyproject_version() {
-  local file="$1"
-  VERSION="$VERSION" NEW_VERSION="$NEW_VERSION" perl -0pi -e 's/^version = "\Q$ENV{VERSION}\E"$/version = "$ENV{NEW_VERSION}"/m' "$file"
-}
-
-if [[ -z "${NEW_VERSION:-}" ]]; then
-  echo "NEW_VERSION must not be empty"
-  exit 1
-fi
-
-VERSION=$( cat pyproject.toml | yq -p toml -o toml -r '.project.version' )
+export VERSION=$( cat pyproject.toml | yq -p toml -o toml -r '.project.version' )
 echo "PREVIOUS PYTHON VERSION: $VERSION"
 if [[ -z "$VERSION" || "$VERSION" == "null" ]]; then
   echo "Version from pyproject.toml must not be empty"
@@ -41,26 +36,28 @@ fi
 if [[ "$VERSION" != "$NEW_VERSION" ]]; then
   if [[ "${DRY_RUN:-false}" == "true" ]]; then
     echo "Would update version in pyproject.toml to $NEW_VERSION"
-    TEMP_PYPROJECT=$( mktemp )
-    trap 'rm -f "$TEMP_PYPROJECT"' EXIT
-    cp pyproject.toml "$TEMP_PYPROJECT"
-    update_pyproject_version "$TEMP_PYPROJECT"
 
-    VERSION=$( yq -p toml -o toml -r '.project.version' "$TEMP_PYPROJECT" )
-    if [[ "$VERSION" != "$NEW_VERSION" ]]; then
+    DRY_RUN_RESULT=$( perl -0pe 's/^version = "\Q$ENV{VERSION}\E"$/version = "$ENV{NEW_VERSION}"/m' pyproject.toml )
+    if [[ "$( yq -p toml -o toml -r '.project.version' <( printf '%s\n' "$DRY_RUN_RESULT" ) )" != "$NEW_VERSION" ]]; then
       echo "failed to update version in pyproject.toml"
       exit 1
     fi
 
-    diff -u --label pyproject.toml --label "pyproject.toml (dry run)" pyproject.toml "$TEMP_PYPROJECT" || true
+    diff -u --label pyproject.toml --label "pyproject.toml (dry run)" pyproject.toml <( printf '%s\n' "$DRY_RUN_RESULT" )
+    DIFF_EXIT_CODE=$?
+    if [[ "$DIFF_EXIT_CODE" == 0 ]]; then
+      echo "failed to update version in pyproject.toml"
+      exit 1
+    elif [[ "$DIFF_EXIT_CODE" != 1 ]]; then
+      exit "$DIFF_EXIT_CODE"
+    fi
     exit 0
   fi
 
   echo "Updating version in pyproject.toml to $NEW_VERSION"
-  update_pyproject_version pyproject.toml
+  perl -0pi -e 's/^version = "\Q$ENV{VERSION}\E"$/version = "$ENV{NEW_VERSION}"/m' pyproject.toml
 
-  VERSION=$( cat pyproject.toml | yq -p toml -o toml -r '.project.version' )
-  if [[ "$VERSION" != "$NEW_VERSION" ]]; then
+  if [[ "$( cat pyproject.toml | yq -p toml -o toml -r '.project.version' )" != "$NEW_VERSION" ]]; then
     echo "failed to update version in pyproject.toml"
     exit 1
   fi
