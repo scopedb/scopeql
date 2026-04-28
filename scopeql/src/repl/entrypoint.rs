@@ -12,12 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::fmt::Write;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
 
-use clap::CommandFactory;
 use clap::Parser;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
@@ -43,6 +41,7 @@ use crate::global;
 use crate::repl::command::ReplCommand;
 use crate::repl::command::ReplSubCommand;
 use crate::repl::command::TimerMode;
+use crate::repl::command::render_repl_help;
 use crate::repl::command::render_repl_parse_error;
 use crate::repl::highlight::ScopeQLHighlighter;
 use crate::repl::lexer;
@@ -283,24 +282,7 @@ pub fn entrypoint(config: &Config) {
                     }
                 },
                 ReplSubCommand::Cancel(cancel) => cancel.run(&repl.client),
-                ReplSubCommand::Help => {
-                    let cmd = ReplCommand::command();
-
-                    let width = cmd
-                        .get_subcommands()
-                        .map(|c| c.get_name().len())
-                        .max()
-                        .unwrap_or(0);
-
-                    println!("Commands:");
-                    for subcommand in cmd.get_subcommands() {
-                        let mut message = format!("  {:width$}", subcommand.get_name());
-                        if let Some(about) = subcommand.get_about() {
-                            write!(&mut message, "  {about}").unwrap();
-                        }
-                        println!("{message}");
-                    }
-                }
+                ReplSubCommand::Help(_) => print!("{}", render_repl_help()),
             }
             continue;
         }

@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::fmt::Write;
+
+use clap::Command;
+use clap::CommandFactory;
 use clap::Parser;
 use clap::Subcommand;
 use clap::error::ContextKind;
@@ -23,7 +27,7 @@ use crate::command::OutputFormat;
 use crate::global::rt;
 
 #[derive(Debug, Parser)]
-#[command(name = "", disable_help_subcommand = true)]
+#[command(name = "", disable_help_flag = true, disable_help_subcommand = true)]
 pub struct ReplCommand {
     #[command(subcommand)]
     pub cmd: ReplSubCommand,
@@ -43,12 +47,13 @@ pub enum ReplSubCommand {
     /// Cancel the statement with the given ID.
     #[command(name = "/cancel")]
     Cancel(CommandCancel),
-    /// Print help.
+    /// Show help.
     #[command(name = "/help")]
-    Help,
+    Help(CommandHelp),
 }
 
 #[derive(Debug, Parser)]
+#[command(disable_help_flag = true)]
 pub struct CommandConnection {
     /// The connection name to use.
     #[arg(value_name = "NAME")]
@@ -56,6 +61,7 @@ pub struct CommandConnection {
 }
 
 #[derive(Debug, Parser)]
+#[command(disable_help_flag = true)]
 pub struct CommandFormat {
     /// The output format to use.
     #[arg(value_enum, value_name = "FORMAT")]
@@ -63,9 +69,10 @@ pub struct CommandFormat {
 }
 
 #[derive(Debug, Parser)]
+#[command(disable_help_flag = true)]
 pub struct CommandTimer {
     /// Enable or disable timing display.
-    #[arg(value_enum)]
+    #[arg(value_enum, value_name = "on|off")]
     pub mode: TimerMode,
 }
 
@@ -76,11 +83,16 @@ pub enum TimerMode {
 }
 
 #[derive(Debug, Parser)]
+#[command(disable_help_flag = true)]
 pub struct CommandCancel {
     /// The ID of the statement to cancel.
-    #[arg(value_name = "STATEMENT_ID")]
+    #[arg(value_name = "ID")]
     pub statement_id: String,
 }
+
+#[derive(Debug, Parser)]
+#[command(disable_help_flag = true)]
+pub struct CommandHelp {}
 
 impl CommandCancel {
     pub fn run(self, client: &ScopeQLClient) {
@@ -108,6 +120,46 @@ impl CommandCancel {
             None => println!("interrupted"),
         }
     }
+}
+
+pub fn render_repl_help() -> String {
+    let mut cmd = ReplCommand::command();
+    render_repl_command_list(&mut cmd)
+}
+
+fn render_repl_command_list(cmd: &mut Command) -> String {
+    let rows = cmd
+        .get_subcommands_mut()
+        .map(|subcommand| (command_usage(subcommand), command_about(subcommand)))
+        .collect::<Vec<_>>();
+    let width = rows.iter().map(|(usage, _)| usage.len()).max().unwrap_or(0);
+
+    let mut output = String::from("Commands:\n");
+    for (usage, about) in rows {
+        writeln!(&mut output, "  {usage:<width$}   {about}").unwrap();
+    }
+    output
+}
+
+fn command_usage(command: &mut Command) -> String {
+    let usage = command.render_usage().to_string();
+    let usage = usage
+        .trim()
+        .strip_prefix("Usage:")
+        .map(str::trim)
+        .unwrap_or_else(|| usage.trim())
+        .to_string();
+    usage
+}
+
+fn command_about(command: &Command) -> String {
+    command
+        .get_about()
+        .map(ToString::to_string)
+        .unwrap_or_default()
+        .trim()
+        .trim_end_matches('.')
+        .to_string()
 }
 
 pub fn render_repl_parse_error(err: clap::Error) -> String {
