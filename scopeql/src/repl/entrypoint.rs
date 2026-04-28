@@ -43,6 +43,7 @@ use crate::global;
 use crate::repl::command::ReplCommand;
 use crate::repl::command::ReplSubCommand;
 use crate::repl::command::TimerMode;
+use crate::repl::command::render_repl_parse_error;
 use crate::repl::highlight::ScopeQLHighlighter;
 use crate::repl::lexer;
 use crate::repl::prompt::CommandLinePrompt;
@@ -250,7 +251,7 @@ pub fn entrypoint(config: &Config) {
             let cmd = match ReplCommand::try_parse_from(args) {
                 Ok(cmd) => cmd,
                 Err(err) => {
-                    eprintln!("{err}");
+                    eprint!("{}", render_repl_parse_error(err));
                     continue;
                 }
             };
