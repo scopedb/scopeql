@@ -71,9 +71,9 @@ fn main() -> shadow_rs::SdResult<()> {
     if let Some(ts) = env::var_os("SOURCE_DATE_EPOCH") {
         let epoch = ts
             .into_string()
-            .unwrap_or_else(|_| panic!("SOURCE_DATE_EPOCH could not be cast to a number"))
+            .expect("SOURCE_DATE_EPOCH contains invalid Unicode")
             .parse::<i64>()
-            .unwrap_or_else(|_| panic!("SOURCE_DATE_EPOCH could not be cast to a number"));
+            .expect("SOURCE_DATE_EPOCH is not a valid integer");
         let source_timestamp = jiff::Timestamp::from_second(epoch).unwrap_or_else(|err| {
             panic!("SOURCE_DATE_EPOCH could not be cast to a timestamp: {err}")
         });

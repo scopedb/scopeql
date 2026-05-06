@@ -7,7 +7,7 @@ All significant changes to this software be documented in this file.
 ### Breaking Changes
 
 * Remove `--header` options and the REPL `/headers` command.
-* REPL command now starts with slash (`/`) instead of backslash (`\`), e.g. \format becomes /format.
+* REPL command now starts with slash (`/`) instead of backslash (`\`), e.g. `\format` becomes `/format`.
 
 ### New Features
 
