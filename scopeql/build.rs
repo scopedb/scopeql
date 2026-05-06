@@ -15,9 +15,8 @@
 use std::collections::BTreeSet;
 use std::env;
 use std::path::Path;
+use std::str::FromStr;
 
-use build_data::format_timestamp;
-use build_data::get_source_time;
 use shadow_rs::CARGO_METADATA;
 use shadow_rs::CARGO_TREE;
 use shadow_rs::ShadowBuilder;
@@ -51,28 +50,47 @@ fn configure_rerun_if_head_commit_changed() {
 }
 
 fn main() -> shadow_rs::SdResult<()> {
-    configure_rerun_if_head_commit_changed();
+    let now = jiff::Timestamp::now();
 
-    println!(
-        "cargo::rustc-env=SOURCE_TIMESTAMP={}",
-        if let Ok(t) = get_source_time() {
-            format_timestamp(t)?
-        } else {
-            "".to_string()
-        }
-    );
-    build_data::set_BUILD_TIMESTAMP();
+    configure_rerun_if_head_commit_changed();
 
     // The "CARGO_WORKSPACE_DIR" is set manually (not by Rust itself) in Cargo config file, to
     // solve the problem where the "CARGO_MANIFEST_DIR" is not what we want when this repo is
     // made as a submodule in another repo.
     let src_path = env::var("CARGO_WORKSPACE_DIR").or_else(|_| env::var("CARGO_MANIFEST_DIR"))?;
     let out_path = env::var("OUT_DIR")?;
-    let _ = ShadowBuilder::builder()
+    let shadow = ShadowBuilder::builder()
         .src_path(src_path)
         .out_path(out_path)
         // exclude these two large constants that we don't need
         .deny_const(BTreeSet::from([CARGO_METADATA, CARGO_TREE]))
         .build()?;
+
+    // @see https://reproducible-builds.org/docs/source-date-epoch/
+    println!("cargo:rerun-if-env-changed=SOURCE_DATE_EPOCH");
+    if let Some(ts) = env::var_os("SOURCE_DATE_EPOCH") {
+        let epoch = ts
+            .into_string()
+            .unwrap_or_else(|_| panic!("SOURCE_DATE_EPOCH could not be cast to a number"))
+            .parse::<i64>()
+            .unwrap_or_else(|_| panic!("SOURCE_DATE_EPOCH could not be cast to a number"));
+        let source_timestamp = jiff::Timestamp::from_second(epoch).unwrap_or_else(|err| {
+            panic!("SOURCE_DATE_EPOCH could not be cast to a timestamp: {err}")
+        });
+        println!("cargo:rustc-env=SOURCE_TIMESTAMP={source_timestamp}");
+    } else if let Some(commit) = shadow.map.get(shadow_rs::COMMIT_DATE_3339) {
+        let ts = commit.v.as_str();
+        let source_timestamp = jiff::Timestamp::from_str(ts).unwrap_or_else(|err| {
+            panic!("COMMIT_DATE_3339 {ts} could not be cast to a timestamp: {err}")
+        });
+        println!("cargo:rustc-env=SOURCE_TIMESTAMP={source_timestamp}");
+    } else {
+        println!("cargo:warning=SOURCE_TIMESTAMP is set to empty");
+        println!("cargo:rustc-env=SOURCE_TIMESTAMP=");
+    };
+
+    let build_timestamp = now;
+    println!("cargo:rustc-env=BUILD_TIMESTAMP={build_timestamp}");
+
     Ok(())
 }
