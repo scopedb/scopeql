@@ -67,8 +67,8 @@ toml_edit = { version = "0.25.1", features = ["serde"] }
 uuid = { version = "1.20.0", features = ["v7", "serde"] }
 
 [build-dependencies]
-build-data = { version = "0.3.3" }
 gix-discover = { version = "0.51.0", features = ["sha1"] }
+jiff = { version = "0.2.24" }
 shadow-rs = { version = "2.0.0", default-features = false, features = [
   "build",
 ] }
