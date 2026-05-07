@@ -60,18 +60,14 @@ serde_json = { version = "1.0", features = [
   "unbounded_depth",
   "preserve_order",
 ] }
-shadow-rs = { version = "2.0.0", default-features = false }
 tokio = { version = "1.47.1", features = ["full"] }
 toml = { version = "1.0.1" }
 toml_edit = { version = "0.25.1", features = ["serde"] }
 uuid = { version = "1.20.0", features = ["v7", "serde"] }
 
 [build-dependencies]
-gix-discover = { version = "0.51.0", features = ["sha1"] }
 jiff = { version = "0.2.24" }
-shadow-rs = { version = "2.0.0", default-features = false, features = [
-  "build",
-] }
+gix = { version = "0.83.0", default-features = false, features = ["sha1", "status"] }
 
 [lints]
 workspace = true
