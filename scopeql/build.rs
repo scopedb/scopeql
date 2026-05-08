@@ -90,7 +90,10 @@ fn main() {
         now.strftime("%Y-%m-%dT%H:%M:%SZ"),
     );
 
-    if let Ok(version) = Command::new("rustc").arg("-V").output() {
+    println!("cargo:rerun-if-env-changed=RUSTC");
+    if let Some(rustc) = env::var_os("RUSTC")
+        && let Ok(version) = Command::new(rustc).arg("-V").output()
+    {
         let version = String::from_utf8_lossy(&version.stdout);
         configure_rustc_env("SCOPEQL_RUSTC_VERSION", version.trim());
     }
