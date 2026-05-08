@@ -33,7 +33,12 @@ pub const fn build_info() -> BuildInfo {
     let clean = !dirty;
 
     let commit = env!("SCOPEQL_GIT_COMMIT_HASH");
-    let (commit_short, _) = commit.split_at(8);
+    let commit_short = if commit.len() >= 8 {
+        let (commit_short, _) = commit.split_at(8);
+        commit_short
+    } else {
+        commit
+    };
 
     BuildInfo {
         branch: env!("SCOPEQL_GIT_BRANCH"),

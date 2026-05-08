@@ -74,8 +74,14 @@ fn configure_rustc_env_within_repo(repo: gix::Repository) -> Result<(), gix::Err
 }
 
 fn main() {
-    // Ensure SCOPEQL_SOURCE_TIMESTAMP is present
+    // Ensure all required build environment variables are present with default values
     configure_rustc_env("SCOPEQL_SOURCE_TIMESTAMP", "");
+    configure_rustc_env("SCOPEQL_BUILD_TIMESTAMP", "");
+    configure_rustc_env("SCOPEQL_RUSTC_VERSION", "");
+    configure_rustc_env("SCOPEQL_BUILD_TARGET", "");
+    configure_rustc_env("SCOPEQL_GIT_BRANCH", "");
+    configure_rustc_env("SCOPEQL_GIT_COMMIT_HASH", "");
+    configure_rustc_env("SCOPEQL_GIT_DIRTY", "false");
 
     let now = jiff::Timestamp::now();
     // Truncate to seconds to align with SCOPEQL_SOURCE_TIMESTAMP
@@ -93,15 +99,10 @@ fn main() {
         configure_rustc_env("SCOPEQL_BUILD_TARGET", target);
     }
 
-    // Ensure all Git-related build environment variables are present with default values
-    configure_rustc_env("SCOPEQL_GIT_BRANCH", "");
-    configure_rustc_env("SCOPEQL_GIT_COMMIT_HASH", "");
-    configure_rustc_env("SCOPEQL_GIT_DIRTY", "false");
-
     // Override Git-related build environment variables if within a Git repository
     if let Ok(repo) = gix::discover(Path::new(env!("CARGO_MANIFEST_DIR"))) {
         let git_refs_heads = repo.path().join("refs/heads");
-        println!("cargo::rerun-if-changed={}", git_refs_heads.display());
+        println!("cargo:rerun-if-changed={}", git_refs_heads.display());
 
         if let Err(err) = configure_rustc_env_within_repo(repo) {
             println!("cargo:warning=failed to configure environment within git repo: {err}");
