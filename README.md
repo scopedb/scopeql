@@ -43,6 +43,10 @@ headers = ["X-Tenant: acme"]
 
 You can also override connection settings with environment variables such as `SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_ENDPOINT`, `SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_API_KEY`, and `SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_HEADERS`. The `SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_HEADERS` value should use newline-separated `KEY: VALUE` entries, matching the `headers = ["KEY: VALUE"]` TOML format.
 
+## Logs
+
+Logs are written to files under the `scopeql/logs/` subdirectory of the platform's [cache directory](https://docs.rs/dirs/latest/dirs/fn.cache_dir.html). The default log level is `INFO`. To change the log level, set the `RUST_LOG` environment variable, e.g., `RUST_LOG=debug` for more verbose output.
+
 ## License
 
 This project is licensed under [Apache License, Version 2.0](LICENSE).
