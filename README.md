@@ -45,7 +45,7 @@ You can also override connection settings with environment variables such as `SC
 
 ## Logs
 
-Logs are written to the `.scopeql/logs/` subdirectory of the platform's [cache directory](https://docs.rs/dirs/latest/dirs/fn.cache_dir.html) (falling back to `~/.scopeql/logs/`). The default log level is `INFO`. To change the log level, set the [`RUST_LOG`](https://docs.rs/logforth/latest/logforth/filter/env_filter/index.html) environment variable, e.g., `RUST_LOG=debug` for more verbose output.
+Logs are written to the `.scopeql/logs/` subdirectory of the platform's [cache directory](https://docs.rs/dirs/latest/dirs/fn.cache_dir.html) (falling back to `$HOME/.scopeql/logs/`). The default log level is `INFO`. To change the log level, set the [`RUST_LOG`](https://docs.rs/logforth/latest/logforth/filter/env_filter/index.html) environment variable, e.g., `RUST_LOG=debug` for more verbose output.
 
 ## License
 
