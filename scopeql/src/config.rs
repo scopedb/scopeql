@@ -13,7 +13,11 @@
 // limitations under the License.
 
 use std::collections::BTreeMap;
+use std::io;
+use std::io::BufRead;
+use std::io::Write;
 use std::path::Path;
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use serde::Deserialize;
@@ -21,31 +25,48 @@ use serde::Serialize;
 use serde::de::IntoDeserializer;
 use toml_edit::DocumentMut;
 
+pub(crate) fn candidate_config_paths() -> Vec<PathBuf> {
+    let mut candidates = vec![];
+    if let Some(home_dir) = dirs::home_dir() {
+        candidates.push(home_dir.join(".scopeql").join("config.toml"));
+        candidates.push(home_dir.join(".config").join("scopeql").join("config.toml"));
+    }
+    if let Some(config_dir) = dirs::config_dir() {
+        candidates.push(config_dir.join("scopeql").join("config.toml"));
+    }
+    candidates.sort();
+    candidates.dedup();
+    candidates
+}
+
 pub fn load_config<P: AsRef<Path>>(config_file: Option<P>) -> Config {
     // Layer 0: the config file
     let content = if let Some(file) = config_file.as_ref().map(AsRef::as_ref) {
-        std::fs::read_to_string(file).unwrap_or_else(|err| {
-            let file = file.display();
-            panic!("failed to read config file {file}: {err}")
-        })
+        match std::fs::read_to_string(file) {
+            Ok(content) => {
+                log::info!("loaded config from {}", file.display());
+                content
+            }
+            Err(err) => {
+                panic!("failed to read config file {}: {err}", file.display());
+            }
+        }
     } else {
-        let mut candidates = vec![];
-        if let Some(home_dir) = dirs::home_dir() {
-            candidates.push(home_dir.join(".scopeql").join("config.toml"));
-            candidates.push(home_dir.join(".config").join("scopeql").join("config.toml"));
-        }
-        if let Some(config_dir) = dirs::config_dir() {
-            candidates.push(config_dir.join("scopeql").join("config.toml"));
-        }
-        candidates.sort();
-        candidates.dedup();
-
-        candidates
-            .into_iter()
-            .find_map(|candidate| std::fs::read_to_string(candidate).ok())
-            .unwrap_or_else(|| {
+        let found = candidate_config_paths().into_iter().find_map(|candidate| {
+            std::fs::read_to_string(&candidate)
+                .ok()
+                .map(|content| (candidate, content))
+        });
+        match found {
+            Some((path, content)) => {
+                log::info!("loaded config from {}", path.display());
+                content
+            }
+            None => {
+                log::info!("no config file exists in candidate paths, using default config");
                 toml::to_string(&Config::default()).expect("failed to serialize default config")
-            })
+            }
+        }
     };
 
     let mut config = DocumentMut::from_str(&content)
@@ -117,7 +138,7 @@ fn parse_env_headers(value: &str) -> toml_edit::Array {
     headers
 }
 
-fn set_toml_path(doc: &mut DocumentMut, parts: &[&str], value: toml_edit::Item) {
+pub(crate) fn set_toml_path(doc: &mut DocumentMut, parts: &[&str], value: toml_edit::Item) {
     let mut current = doc.as_item_mut();
 
     let len = parts.len();
@@ -147,6 +168,18 @@ impl Config {
     pub fn get_default_connection(&self) -> Option<&ConnectionSpec> {
         self.get_connection(&self.default_connection)
     }
+
+    pub(crate) fn default_connection_name(&self) -> &str {
+        &self.default_connection
+    }
+
+    pub(crate) fn connections(&self) -> &BTreeMap<String, ConnectionSpec> {
+        &self.connections
+    }
+
+    pub(crate) fn default_url() -> &'static str {
+        "http://127.0.0.1:6543"
+    }
 }
 
 impl Default for Config {
@@ -156,7 +189,7 @@ impl Default for Config {
             connections: BTreeMap::from([(
                 "default".to_string(),
                 ConnectionSpec {
-                    endpoint: "http://127.0.0.1:6543".to_string(),
+                    endpoint: Self::default_url().to_string(),
                     api_key: None,
                     headers: vec![],
                 },
@@ -192,6 +225,226 @@ impl ConnectionSpec {
     pub fn headers(&self) -> &[String] {
         &self.headers
     }
+}
+
+fn load_document() -> (PathBuf, DocumentMut) {
+    let path = candidate_config_paths()
+        .into_iter()
+        .find(|path| path.exists())
+        .unwrap_or_else(|| {
+            eprintln!("No config file found. Run `scopeql config add-connection` to create one.");
+            std::process::exit(1);
+        });
+
+    let content = std::fs::read_to_string(&path).unwrap_or_else(|err| {
+        panic!("failed to read config file {}: {err}", path.display());
+    });
+
+    let doc = DocumentMut::from_str(&content).unwrap_or_else(|err| {
+        panic!("failed to parse config file {}: {err}", path.display());
+    });
+
+    (path, doc)
+}
+
+fn parse_cli_headers(headers: &str) -> Vec<String> {
+    headers
+        .split(',')
+        .map(|h| {
+            let h = h.trim();
+            if let Some((key, value)) = h.split_once('=') {
+                format!("{}: {}", key.trim(), value.trim())
+            } else {
+                h.to_string()
+            }
+        })
+        .filter(|h| !h.is_empty())
+        .collect()
+}
+
+fn prompt(message: &str) -> String {
+    let mut stdout = io::stdout();
+    let _ = write!(stdout, "{message} ");
+    let _ = stdout.flush();
+
+    let stdin = io::stdin();
+    let mut line = String::new();
+    stdin.lock().read_line(&mut line).unwrap();
+    line.trim().to_string()
+}
+
+fn prompt_optional(message: &str) -> Option<String> {
+    let val = prompt(message);
+    if val.is_empty() { None } else { Some(val) }
+}
+
+fn prompt_password(message: &str) -> Option<String> {
+    let val = rpassword::prompt_password(message).unwrap_or_default();
+    let val = val.trim().to_string();
+    if val.is_empty() { None } else { Some(val) }
+}
+
+pub(crate) fn config_list() {
+    let (_path, doc) = load_document();
+    let config =
+        Config::deserialize(doc.into_deserializer()).expect("failed to deserialize config");
+
+    let default = config.default_connection_name();
+
+    if config.connections().is_empty() {
+        println!("No connections configured.");
+        return;
+    }
+
+    let max_name_width = config
+        .connections()
+        .keys()
+        .map(|name: &String| name.len())
+        .max()
+        .unwrap_or(0)
+        .max(4);
+
+    for (name, conn) in config.connections() {
+        let marker = if name == default { '*' } else { ' ' };
+        println!("{marker} {name:<max_name_width$}  {}", conn.endpoint());
+    }
+}
+
+pub(crate) fn config_use(name: &str) {
+    let (path, mut doc) = load_document();
+
+    {
+        let config = Config::deserialize(doc.clone().into_deserializer())
+            .expect("failed to deserialize config");
+        if !config.connections().contains_key(name) {
+            eprintln!("Connection '{name}' not found.");
+            std::process::exit(1);
+        }
+    }
+
+    set_toml_path(&mut doc, &["default_connection"], toml_edit::value(name));
+
+    std::fs::write(&path, doc.to_string()).unwrap_or_else(|err| {
+        panic!("failed to write config file {}: {err}", path.display());
+    });
+
+    println!("Switched to connection '{name}'");
+}
+
+pub(crate) fn config_add(
+    name: Option<String>,
+    url: Option<String>,
+    api_key: Option<String>,
+    headers: Option<String>,
+    prompt_flag: bool,
+) {
+    let (name, url, api_key, headers_raw) = if prompt_flag {
+        let name = prompt("Connection name:");
+        let url = prompt("URL:");
+        let api_key = prompt_password("API key (optional):");
+        let headers = prompt_optional("Headers (key=value, comma-separated, optional):");
+        (name, url, api_key, headers)
+    } else {
+        let name = name.unwrap_or_else(|| {
+            eprintln!("Connection name is required.");
+            std::process::exit(1);
+        });
+        let url = url.unwrap_or(Config::default_url().to_string());
+        (name, url, api_key, headers)
+    };
+
+    let candidates = candidate_config_paths();
+    let (path, mut doc, is_new) = if let Some(found) = candidates.iter().find(|path| path.exists())
+    {
+        log::info!("Loaded config file from {}", found.display());
+        let content = std::fs::read_to_string(found).unwrap_or_else(|err| {
+            panic!("failed to read config file {}: {err}", found.display());
+        });
+        let doc = DocumentMut::from_str(&content).unwrap_or_else(|err| {
+            panic!("failed to parse config file {}: {err}", found.display());
+        });
+        (found, doc, false)
+    } else {
+        let path = candidates
+            .first()
+            .expect("no candidate config paths available");
+        log::info!(
+            "No config file found. Creating new config at {}",
+            path.display()
+        );
+        let parent = path.parent().unwrap();
+        std::fs::create_dir_all(parent).unwrap_or_else(|err| {
+            panic!(
+                "failed to create config directory {}: {err}",
+                parent.display()
+            );
+        });
+        let mut doc = DocumentMut::new();
+        doc["default_connection"] = toml_edit::value(&name);
+        doc["connections"] = toml_edit::table();
+        (path, doc, true)
+    };
+
+    if !is_new {
+        let config = Config::deserialize(doc.clone().into_deserializer())
+            .expect("failed to deserialize config");
+        if config.connections().contains_key(&name) {
+            eprintln!("Connection '{name}' already exists.");
+            std::process::exit(1);
+        }
+    }
+
+    doc["connections"][&name] = toml_edit::table();
+    doc["connections"][&name]["endpoint"] = toml_edit::value(url);
+
+    if let Some(api_key) = api_key
+        && !api_key.is_empty()
+    {
+        doc["connections"][&name]["api_key"] = toml_edit::value(api_key);
+    }
+
+    if let Some(headers_raw) = headers_raw {
+        let headers = parse_cli_headers(&headers_raw);
+        if !headers.is_empty() {
+            let arr: toml_edit::Array = headers.into_iter().collect();
+            doc["connections"][&name]["headers"] = toml_edit::value(arr);
+        }
+    }
+
+    std::fs::write(path, doc.to_string()).unwrap_or_else(|err| {
+        panic!("failed to write config file {}: {err}", path.display());
+    });
+
+    println!("Added connection '{name}' to {}", path.display());
+}
+
+pub(crate) fn config_delete(name: &str) {
+    let (path, mut doc) = load_document();
+
+    let config =
+        Config::deserialize(doc.clone().into_deserializer()).expect("failed to deserialize config");
+
+    if !config.connections().contains_key(name) {
+        eprintln!("Connection '{name}' not found.");
+        std::process::exit(1);
+    }
+
+    if config.default_connection_name() == name {
+        let Some(other) = config.connections().keys().find(|k| *k != name).cloned() else {
+            eprintln!("Cannot delete the only connection.");
+            std::process::exit(1);
+        };
+        set_toml_path(&mut doc, &["default_connection"], toml_edit::value(&other));
+        println!("Switched to connection '{other}'");
+    }
+
+    doc["connections"].as_table_mut().unwrap().remove(name);
+
+    std::fs::write(&path, doc.to_string()).unwrap_or_else(|err| {
+        panic!("failed to write config file {}: {err}", path.display());
+    });
+
+    println!("Deleted connection '{name}' from {}", path.display());
 }
 
 #[cfg(test)]

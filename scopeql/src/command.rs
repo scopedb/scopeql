@@ -111,23 +111,50 @@ pub enum Subcommand {
         #[clap(long, value_enum)]
         format: Option<DataFormat>,
     },
-    /// Generate command-line interface utilities.
-    #[clap(name = "gen")]
-    Generate {
-        /// Write output to `<file>` instead of stdout.
-        #[clap(short = 'o', long = "output", value_name = "file", value_hint = ValueHint::FilePath)]
-        output_file: Option<PathBuf>,
-
-        /// The target to generate.
-        #[clap(value_enum)]
-        target: GenerateTarget,
+    /// Manage the config file
+    #[clap(name = "config")]
+    Config {
+        #[command(subcommand)]
+        cmd: ConfigSubcommand,
     },
 }
 
-#[derive(Debug, Clone, clap::ValueEnum)]
-pub enum GenerateTarget {
-    /// Generate the default config file.
-    Config,
+#[derive(Debug, Clone, clap::Subcommand)]
+pub enum ConfigSubcommand {
+    /// List all configured connections.
+    #[clap(name = "list-connections")]
+    List,
+    /// Switch to a different connection by name.
+    #[clap(name = "use-connection")]
+    Use {
+        /// The name of the connection to use.
+        name: String,
+    },
+    /// Add a new connection.
+    #[clap(name = "add-connection")]
+    Add {
+        /// The name of the new connection.
+        name: Option<String>,
+        /// The ScopeDB endpoint URL.
+        #[clap(long)]
+        url: Option<String>,
+        /// The API key for authentication.
+        #[clap(long)]
+        api_key: Option<String>,
+        /// Additional headers (key=value, comma-separated).
+        #[clap(long)]
+        headers: Option<String>,
+
+        /// Prompt for values interactively instead of using CLI options.
+        #[clap(long, default_value = "false")]
+        prompt: bool,
+    },
+    /// Delete a connection by name.
+    #[clap(name = "delete-connection")]
+    Delete {
+        /// The name of the connection to delete.
+        name: String,
+    },
 }
 
 fn styled() -> clap::builder::Styles {

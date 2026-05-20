@@ -22,11 +22,10 @@ use logforth::filter::env_filter::EnvFilterBuilder;
 use logforth::layout::JsonLayout;
 
 use crate::command::Command;
+use crate::command::ConfigSubcommand;
 use crate::command::ExecArgs;
-use crate::command::GenerateTarget;
 use crate::command::ReplArgs;
 use crate::command::Subcommand;
-use crate::config::Config;
 use crate::config::load_config;
 use crate::global::eprintln_and_error;
 
@@ -100,30 +99,26 @@ fn main() {
             let config = load_config(config_file);
             load::load(&config, quiet, file, transform, format);
         }
-        Some(Subcommand::Generate {
-            target,
-            output_file,
-        }) => {
-            log::info!("generating CLI artifact for target {target:?}");
-            let content = match target {
-                GenerateTarget::Config => {
-                    let config = Config::default();
-                    toml::to_string(&config).expect("default config must be always valid")
-                }
-            };
-
-            if let Some(output) = output_file {
-                std::fs::write(&output, content).unwrap_or_else(|err| {
-                    let output = output.display();
-                    let target = match target {
-                        GenerateTarget::Config => "configurations",
-                    };
-                    panic!("failed to write {target} to {output}: {err}")
-                });
-            } else {
-                println!("{content}");
+        Some(Subcommand::Config { cmd }) => match cmd {
+            ConfigSubcommand::List => {
+                config::config_list();
             }
-        }
+            ConfigSubcommand::Use { name } => {
+                config::config_use(&name);
+            }
+            ConfigSubcommand::Add {
+                name,
+                url,
+                api_key,
+                headers,
+                prompt,
+            } => {
+                config::config_add(name, url, api_key, headers, prompt);
+            }
+            ConfigSubcommand::Delete { name } => {
+                config::config_delete(&name);
+            }
+        },
     }
 }
 
