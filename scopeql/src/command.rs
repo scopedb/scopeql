@@ -16,6 +16,7 @@ use std::path::PathBuf;
 
 use clap::ValueHint;
 
+use crate::config::DEFAULT_URL;
 use crate::load::DataFormat;
 use crate::version::version;
 
@@ -136,8 +137,8 @@ pub enum ConfigSubcommand {
         /// The name of the new connection.
         name: String,
         /// The ScopeDB endpoint URL.
-        #[clap(long)]
-        url: Option<String>,
+        #[clap(long, default_value = DEFAULT_URL)]
+        url: String,
         /// The API key for authentication.
         #[clap(long)]
         api_key: Option<String>,

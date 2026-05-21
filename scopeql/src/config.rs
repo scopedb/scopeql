@@ -25,6 +25,8 @@ use serde::Serialize;
 use serde::de::IntoDeserializer;
 use toml_edit::DocumentMut;
 
+pub const DEFAULT_URL: &str = "http://127.0.0.1:6543";
+
 fn candidate_config_paths() -> Vec<PathBuf> {
     let mut candidates = vec![];
     if let Some(home_dir) = dirs::home_dir() {
@@ -168,10 +170,6 @@ impl Config {
     pub fn get_default_connection(&self) -> Option<&ConnectionSpec> {
         self.get_connection(&self.default_connection)
     }
-
-    fn default_url() -> &'static str {
-        "http://127.0.0.1:6543"
-    }
 }
 
 impl Default for Config {
@@ -181,7 +179,7 @@ impl Default for Config {
             connections: BTreeMap::from([(
                 "default".to_string(),
                 ConnectionSpec {
-                    endpoint: Self::default_url().to_string(),
+                    endpoint: DEFAULT_URL.to_string(),
                     api_key: None,
                     headers: vec![],
                 },
@@ -332,7 +330,7 @@ pub(crate) fn config_use(name: &str) {
 
 pub(crate) fn config_add(
     name: String,
-    url: Option<String>,
+    url: String,
     api_key: Option<String>,
     headers: Option<String>,
     prompt_flag: bool,
@@ -343,11 +341,7 @@ pub(crate) fn config_add(
         let headers = prompt_optional("Headers (key=value, comma-separated, press Enter to skip):");
         (url, api_key, headers)
     } else {
-        (
-            url.unwrap_or(Config::default_url().to_string()),
-            api_key,
-            headers,
-        )
+        (url, api_key, headers)
     };
 
     let candidates = candidate_config_paths();
