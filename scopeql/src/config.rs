@@ -298,7 +298,14 @@ pub(crate) fn config_list() {
 
     for (name, conn) in &config.connections {
         let marker = if name == default { '*' } else { ' ' };
-        println!("{marker} {name:<max_name_width$}  {}", conn.endpoint());
+        let api_key_hint = conn
+            .api_key()
+            .map(|k| format!(" api_key={}...", &k[..k.len().min(6)]))
+            .unwrap_or_default();
+        println!(
+            "{marker} {name:<max_name_width$}  {}{api_key_hint}",
+            conn.endpoint()
+        );
     }
 }
 
