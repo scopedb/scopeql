@@ -25,7 +25,7 @@ use serde::Serialize;
 use serde::de::IntoDeserializer;
 use toml_edit::DocumentMut;
 
-pub(crate) fn candidate_config_paths() -> Vec<PathBuf> {
+fn candidate_config_paths() -> Vec<PathBuf> {
     let mut candidates = vec![];
     if let Some(home_dir) = dirs::home_dir() {
         candidates.push(home_dir.join(".scopeql").join("config.toml"));
@@ -138,7 +138,7 @@ fn parse_env_headers(value: &str) -> toml_edit::Array {
     headers
 }
 
-pub(crate) fn set_toml_path(doc: &mut DocumentMut, parts: &[&str], value: toml_edit::Item) {
+fn set_toml_path(doc: &mut DocumentMut, parts: &[&str], value: toml_edit::Item) {
     let mut current = doc.as_item_mut();
 
     let len = parts.len();
@@ -169,15 +169,7 @@ impl Config {
         self.get_connection(&self.default_connection)
     }
 
-    pub(crate) fn default_connection_name(&self) -> &str {
-        &self.default_connection
-    }
-
-    pub(crate) fn connections(&self) -> &BTreeMap<String, ConnectionSpec> {
-        &self.connections
-    }
-
-    pub(crate) fn default_url() -> &'static str {
+    fn default_url() -> &'static str {
         "http://127.0.0.1:6543"
     }
 }
@@ -289,22 +281,22 @@ pub(crate) fn config_list() {
     let config =
         Config::deserialize(doc.into_deserializer()).expect("failed to deserialize config");
 
-    let default = config.default_connection_name();
+    let default = &config.default_connection;
 
-    if config.connections().is_empty() {
+    if config.connections.is_empty() {
         println!("No connections configured.");
         return;
     }
 
     let max_name_width = config
-        .connections()
+        .connections
         .keys()
         .map(|name: &String| name.len())
         .max()
         .unwrap_or(0)
         .max(4);
 
-    for (name, conn) in config.connections() {
+    for (name, conn) in &config.connections {
         let marker = if name == default { '*' } else { ' ' };
         println!("{marker} {name:<max_name_width$}  {}", conn.endpoint());
     }
@@ -316,7 +308,7 @@ pub(crate) fn config_use(name: &str) {
     {
         let config = Config::deserialize(doc.clone().into_deserializer())
             .expect("failed to deserialize config");
-        if !config.connections().contains_key(name) {
+        if !config.connections.contains_key(name) {
             eprintln!("Connection '{name}' not found.");
             std::process::exit(1);
         }
@@ -340,8 +332,8 @@ pub(crate) fn config_add(
 ) {
     let (url, api_key, headers_raw) = if prompt_flag {
         let url = prompt("URL:");
-        let api_key = prompt_password("API key (optional):");
-        let headers = prompt_optional("Headers (key=value, comma-separated, optional):");
+        let api_key = prompt_password("API key (press Enter to skip):");
+        let headers = prompt_optional("Headers (key=value, comma-separated, press Enter to skip):");
         (url, api_key, headers)
     } else {
         (
@@ -386,7 +378,7 @@ pub(crate) fn config_add(
     if !is_new {
         let config = Config::deserialize(doc.clone().into_deserializer())
             .expect("failed to deserialize config");
-        if config.connections().contains_key(&name) {
+        if config.connections.contains_key(&name) {
             eprintln!("Connection '{name}' already exists.");
             std::process::exit(1);
         }
@@ -422,13 +414,13 @@ pub(crate) fn config_delete(name: &str) {
     let config =
         Config::deserialize(doc.clone().into_deserializer()).expect("failed to deserialize config");
 
-    if !config.connections().contains_key(name) {
+    if !config.connections.contains_key(name) {
         eprintln!("Connection '{name}' not found.");
         std::process::exit(1);
     }
 
-    if config.default_connection_name() == name {
-        let Some(other) = config.connections().keys().find(|k| *k != name).cloned() else {
+    if config.default_connection == name {
+        let Some(other) = config.connections.keys().find(|k| *k != name).cloned() else {
             eprintln!("Cannot delete the only connection.");
             std::process::exit(1);
         };
