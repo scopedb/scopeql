@@ -332,25 +332,23 @@ pub(crate) fn config_use(name: &str) {
 }
 
 pub(crate) fn config_add(
-    name: Option<String>,
+    name: String,
     url: Option<String>,
     api_key: Option<String>,
     headers: Option<String>,
     prompt_flag: bool,
 ) {
-    let (name, url, api_key, headers_raw) = if prompt_flag {
-        let name = prompt("Connection name:");
+    let (url, api_key, headers_raw) = if prompt_flag {
         let url = prompt("URL:");
         let api_key = prompt_password("API key (optional):");
         let headers = prompt_optional("Headers (key=value, comma-separated, optional):");
-        (name, url, api_key, headers)
+        (url, api_key, headers)
     } else {
-        let name = name.unwrap_or_else(|| {
-            eprintln!("Connection name is required.");
-            std::process::exit(1);
-        });
-        let url = url.unwrap_or(Config::default_url().to_string());
-        (name, url, api_key, headers)
+        (
+            url.unwrap_or(Config::default_url().to_string()),
+            api_key,
+            headers,
+        )
     };
 
     let candidates = candidate_config_paths();

@@ -134,7 +134,7 @@ pub enum ConfigSubcommand {
     #[clap(name = "add-connection")]
     Add {
         /// The name of the new connection.
-        name: Option<String>,
+        name: String,
         /// The ScopeDB endpoint URL.
         #[clap(long)]
         url: Option<String>,
