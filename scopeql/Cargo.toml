@@ -33,6 +33,9 @@ clap = { version = "4.5", features = ["cargo", "derive"] }
 comfy-table = { version = "7.1.4", default-features = false }
 const_format = { version = "0.2.34" }
 csv = { version = "1.4" }
+dialoguer = { version = "0.12", default-features = false, features = [
+  "password",
+] }
 dirs = { version = "6.0" }
 exn = { version = "0.3.0" }
 fastrace = { version = "0.7", features = ["enable"] }

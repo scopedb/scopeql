@@ -8,10 +8,24 @@ All significant changes to this software be documented in this file.
 
 * Remove `--header` options and the REPL `/headers` command.
 * REPL command now starts with slash (`/`) instead of backslash (`\`), e.g. `\format` becomes `/format`.
+* Drop `scopeql gen config` command since connection management is now handled by `scopeql config` subcommands.
+* Connection specs now requires an "auth" field, like:
+
+```toml
+[connections.local]
+endpoint = "http://127.0.0.1:6543"
+auth = "direct"
+
+[connections.cloud]
+endpoint = "https://c065.aws.scopedb.cloud"
+auth = "api_key"
+api_key = "sk_..."
+```
 
 ### New Features
 
 * Allow custom HTTP headers to be configured through connection configuration or `SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_HEADERS`.
+* Support new command `scopeql config` with subcommands `set-connection`, `delete-connection`, `get-connections`, and `use-connection` to manage connection specs.
 
 ## v0.5.1 (2026-04-15)
 

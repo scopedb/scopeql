@@ -14,38 +14,62 @@
 
 use std::collections::BTreeMap;
 use std::path::Path;
+use std::path::PathBuf;
 use std::str::FromStr;
 
+use dialoguer::Confirm;
+use dialoguer::Input;
+use dialoguer::Password;
+use dialoguer::Select;
 use serde::Deserialize;
 use serde::Serialize;
 use serde::de::IntoDeserializer;
 use toml_edit::DocumentMut;
 
+pub const DEFAULT_URL: &str = "http://127.0.0.1:6543";
+
+fn candidate_config_paths() -> Vec<PathBuf> {
+    let mut candidates = vec![];
+    if let Some(home_dir) = dirs::home_dir() {
+        candidates.push(home_dir.join(".scopeql").join("config.toml"));
+        candidates.push(home_dir.join(".config").join("scopeql").join("config.toml"));
+    }
+    if let Some(config_dir) = dirs::config_dir() {
+        candidates.push(config_dir.join("scopeql").join("config.toml"));
+    }
+    candidates.sort();
+    candidates.dedup();
+    candidates
+}
+
 pub fn load_config<P: AsRef<Path>>(config_file: Option<P>) -> Config {
     // Layer 0: the config file
     let content = if let Some(file) = config_file.as_ref().map(AsRef::as_ref) {
-        std::fs::read_to_string(file).unwrap_or_else(|err| {
-            let file = file.display();
-            panic!("failed to read config file {file}: {err}")
-        })
+        match std::fs::read_to_string(file) {
+            Ok(content) => {
+                log::info!("loaded config from {}", file.display());
+                content
+            }
+            Err(err) => {
+                panic!("failed to read config file {}: {err}", file.display());
+            }
+        }
     } else {
-        let mut candidates = vec![];
-        if let Some(home_dir) = dirs::home_dir() {
-            candidates.push(home_dir.join(".scopeql").join("config.toml"));
-            candidates.push(home_dir.join(".config").join("scopeql").join("config.toml"));
-        }
-        if let Some(config_dir) = dirs::config_dir() {
-            candidates.push(config_dir.join("scopeql").join("config.toml"));
-        }
-        candidates.sort();
-        candidates.dedup();
-
-        candidates
-            .into_iter()
-            .find_map(|candidate| std::fs::read_to_string(candidate).ok())
-            .unwrap_or_else(|| {
+        let found = candidate_config_paths().into_iter().find_map(|candidate| {
+            std::fs::read_to_string(&candidate)
+                .ok()
+                .map(|content| (candidate, content))
+        });
+        match found {
+            Some((path, content)) => {
+                log::info!("loaded config from {}", path.display());
+                content
+            }
+            None => {
+                log::info!("no config file exists in candidate paths, using default config");
                 toml::to_string(&Config::default()).expect("failed to serialize default config")
-            })
+            }
+        }
     };
 
     let mut config = DocumentMut::from_str(&content)
@@ -88,6 +112,18 @@ fn apply_env_overrides(config: &mut DocumentMut, env: impl IntoIterator<Item = (
             set_toml_path(
                 config,
                 &["connections", name, "endpoint"],
+                toml_edit::value(value),
+            );
+            continue;
+        }
+
+        if let Some(name) = path
+            .strip_prefix("connections_")
+            .and_then(|path| path.strip_suffix("_auth"))
+        {
+            set_toml_path(
+                config,
+                &["connections", name, "auth"],
                 toml_edit::value(value),
             );
             continue;
@@ -156,26 +192,25 @@ impl Default for Config {
             connections: BTreeMap::from([(
                 "default".to_string(),
                 ConnectionSpec {
-                    endpoint: "http://127.0.0.1:6543".to_string(),
-                    api_key: None,
+                    endpoint: DEFAULT_URL.to_string(),
                     headers: vec![],
+                    auth: ConnectionAuthSpec::Direct,
                 },
             )]),
         }
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ConnectionSpec {
     endpoint: String,
 
     #[serde(default)]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    api_key: Option<String>,
-
-    #[serde(default)]
     #[serde(skip_serializing_if = "Vec::is_empty")]
     headers: Vec<String>,
+
+    #[serde(flatten)]
+    auth: ConnectionAuthSpec,
 }
 
 impl ConnectionSpec {
@@ -183,31 +218,300 @@ impl ConnectionSpec {
         &self.endpoint
     }
 
-    pub fn api_key(&self) -> Option<&str> {
-        self.api_key
-            .as_deref()
-            .filter(|api_key| !api_key.is_empty())
-    }
-
     pub fn headers(&self) -> &[String] {
         &self.headers
     }
+
+    pub fn auth(&self) -> &ConnectionAuthSpec {
+        &self.auth
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(tag = "auth")]
+pub enum ConnectionAuthSpec {
+    #[serde(rename = "direct")]
+    Direct,
+    #[serde(rename = "api_key")]
+    ApiKey { api_key: String },
+}
+
+impl ConnectionAuthSpec {
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Self::Direct => "direct",
+            Self::ApiKey { .. } => "api_key",
+        }
+    }
+}
+
+pub(crate) fn get_connections(name: Option<&str>) {
+    let (_path, doc) = load_document();
+    let config =
+        Config::deserialize(doc.into_deserializer()).expect("failed to deserialize config");
+
+    if config.connections.is_empty() {
+        println!("No connections configured.");
+        return;
+    }
+
+    let connections = if let Some(name) = name {
+        let conn = config.connections.get(name).unwrap_or_else(|| {
+            panic!("Connection '{name}' not found in config.");
+        });
+        vec![(name, conn)]
+    } else {
+        config
+            .connections
+            .iter()
+            .map(|(k, v)| (k.as_str(), v))
+            .collect()
+    };
+
+    let mut table = comfy_table::Table::new();
+    table.load_preset(comfy_table::presets::NOTHING);
+    table.set_header(["DEFAULT", "NAME", "ENDPOINT", "AUTH", "HEADERS"]);
+    for (name, conn) in connections {
+        let mut row = vec![];
+        if name == config.default_connection.as_str() {
+            row.push("*".to_string());
+        } else {
+            row.push("".to_string());
+        }
+        row.push(name.to_string());
+        row.push(conn.endpoint.to_string());
+        row.push(conn.auth().kind().to_string());
+        let mut headers = String::new();
+        for (i, header) in conn.headers.iter().enumerate() {
+            if i > 0 {
+                headers.push('\n');
+            }
+            headers.push_str(header);
+        }
+        row.push(headers);
+        table.add_row(row);
+    }
+
+    println!("{table}");
+}
+
+pub(crate) fn use_connection(name: &str) {
+    let (path, mut doc) = load_document();
+
+    let config =
+        Config::deserialize(doc.clone().into_deserializer()).expect("failed to deserialize config");
+
+    if !config.connections.contains_key(name) {
+        eprintln!("Connection '{name}' not found.");
+        std::process::exit(1);
+    }
+
+    set_toml_path(&mut doc, &["default_connection"], toml_edit::value(name));
+
+    std::fs::write(&path, doc.to_string()).unwrap_or_else(|err| {
+        panic!("failed to write config file {}: {err}", path.display());
+    });
+
+    println!("Switched to connection '{name}'");
+}
+
+pub(crate) fn set_connection(name: String) {
+    let (path, mut doc) = load_document();
+
+    let mut config =
+        Config::deserialize(doc.clone().into_deserializer()).expect("failed to deserialize config");
+
+    let conn = if let Some(conn) = config.connections.get_mut(&name) {
+        if Confirm::new()
+            .with_prompt("Change endpoint?")
+            .default(false)
+            .interact()
+            .expect("failed to read endpoint confirmation")
+        {
+            conn.endpoint = Input::new()
+                .with_prompt("Endpoint")
+                .default(conn.endpoint.clone())
+                .interact_text()
+                .expect("failed to read endpoint");
+        }
+
+        conn.auth = prompt_existing_auth(&conn.auth);
+        conn.clone()
+    } else {
+        let endpoint = Input::new()
+            .with_prompt("Endpoint")
+            .default(DEFAULT_URL.to_string())
+            .interact_text()
+            .expect("failed to read endpoint");
+
+        let auth = prompt_auth_by_kind(None);
+
+        ConnectionSpec {
+            endpoint,
+            headers: vec![],
+            auth,
+        }
+    };
+
+    write_connection(&mut doc, &name, &conn);
+
+    std::fs::write(&path, doc.to_string()).unwrap_or_else(|err| {
+        panic!("failed to write config file {}: {err}", path.display());
+    });
+
+    println!("Set connection '{name}' in {}", path.display());
+}
+
+fn prompt_existing_auth(current: &ConnectionAuthSpec) -> ConnectionAuthSpec {
+    let actions = [
+        "Keep current auth",
+        "Modify current auth fields",
+        "Enter auth type",
+    ];
+
+    let action = Select::new()
+        .with_prompt(format!("Auth [{}]", current.kind()))
+        .items(actions)
+        .default(0)
+        .interact()
+        .expect("failed to read auth action");
+
+    match action {
+        0 => current.clone(),
+        1 => prompt_auth_fields(current),
+        2 => prompt_auth_by_kind(Some(current)),
+        _ => unreachable!("dialoguer returned an unknown auth action"),
+    }
+}
+
+fn prompt_auth_fields(current: &ConnectionAuthSpec) -> ConnectionAuthSpec {
+    match current {
+        ConnectionAuthSpec::Direct => ConnectionAuthSpec::Direct,
+        ConnectionAuthSpec::ApiKey { .. } => ConnectionAuthSpec::ApiKey {
+            api_key: prompt_api_key(),
+        },
+    }
+}
+
+fn prompt_auth_by_kind(default: Option<&ConnectionAuthSpec>) -> ConnectionAuthSpec {
+    let kinds = ["direct", "api_key"];
+    let default = match default {
+        None | Some(ConnectionAuthSpec::Direct) => 0,
+        Some(ConnectionAuthSpec::ApiKey { .. }) => 1,
+    };
+
+    let selection = Select::new()
+        .with_prompt("Auth type")
+        .items(kinds)
+        .default(default)
+        .interact()
+        .expect("failed to read auth type");
+
+    match selection {
+        0 => ConnectionAuthSpec::Direct,
+        1 => ConnectionAuthSpec::ApiKey {
+            api_key: prompt_api_key(),
+        },
+        _ => unreachable!("dialoguer returned an unknown auth type"),
+    }
+}
+
+fn prompt_api_key() -> String {
+    Password::new()
+        .with_prompt("API key")
+        .interact()
+        .expect("failed to read API key")
+}
+
+fn write_connection(doc: &mut DocumentMut, name: &str, conn: &ConnectionSpec) {
+    if !doc["connections"].is_table() {
+        doc["connections"] = toml_edit::Item::Table(toml_edit::Table::new());
+    }
+    if doc["connections"].get(name).is_none() {
+        doc["connections"][name] = toml_edit::Item::Table(toml_edit::Table::new());
+    }
+
+    let table = doc["connections"][name]
+        .as_table_mut()
+        .expect("connection should be a TOML table");
+
+    table["endpoint"] = toml_edit::value(&conn.endpoint);
+    if conn.headers.is_empty() {
+        table.remove("headers");
+    } else {
+        let mut headers = toml_edit::Array::default();
+        for header in &conn.headers {
+            headers.push(header.as_str());
+        }
+        table["headers"] = toml_edit::value(headers);
+    }
+
+    match &conn.auth {
+        ConnectionAuthSpec::Direct => {
+            table["auth"] = toml_edit::value("direct");
+            table.remove("api_key");
+        }
+        ConnectionAuthSpec::ApiKey { api_key } => {
+            table["auth"] = toml_edit::value("api_key");
+            table["api_key"] = toml_edit::value(api_key);
+        }
+    }
+}
+
+pub(crate) fn delete_connection(name: &str) {
+    let (path, mut doc) = load_document();
+
+    let config =
+        Config::deserialize(doc.clone().into_deserializer()).expect("failed to deserialize config");
+
+    if !config.connections.contains_key(name) {
+        eprintln!("Connection '{name}' not found.");
+        std::process::exit(1);
+    }
+
+    if config.default_connection == name {
+        let Some(other) = config.connections.keys().find(|k| *k != name).cloned() else {
+            eprintln!("Cannot delete the only connection.");
+            std::process::exit(1);
+        };
+        set_toml_path(&mut doc, &["default_connection"], toml_edit::value(&other));
+        println!("Switched to connection '{other}'");
+    }
+
+    doc["connections"].as_table_mut().unwrap().remove(name);
+
+    std::fs::write(&path, doc.to_string()).unwrap_or_else(|err| {
+        panic!("failed to write config file {}: {err}", path.display());
+    });
+
+    println!("Deleted connection '{name}' from {}", path.display());
+}
+
+fn load_document() -> (PathBuf, DocumentMut) {
+    let path = candidate_config_paths()
+        .into_iter()
+        .find(|path| path.exists())
+        .unwrap_or_else(|| {
+            eprintln!("No config file found. Run `scopeql config add-connection` to create one.");
+            std::process::exit(1);
+        });
+
+    let content = std::fs::read_to_string(&path).unwrap_or_else(|err| {
+        panic!("failed to read config file {}: {err}", path.display());
+    });
+
+    let doc = DocumentMut::from_str(&content).unwrap_or_else(|err| {
+        panic!("failed to parse config file {}: {err}", path.display());
+    });
+
+    (path, doc)
 }
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
+
     use super::*;
-
-    #[test]
-    fn connection_api_key_ignores_empty_string() {
-        let connection = ConnectionSpec {
-            endpoint: "http://127.0.0.1:6543".to_string(),
-            api_key: Some(String::new()),
-            headers: vec![],
-        };
-
-        assert_eq!(connection.api_key(), None);
-    }
 
     #[test]
     fn config_deserializes_connection_api_key() {
@@ -217,16 +521,16 @@ default_connection = "default"
 
 [connections.default]
 endpoint = "http://127.0.0.1:6543"
+auth = "api_key"
 api_key = "test-api-key"
 "#,
         )
         .unwrap();
 
-        assert_eq!(
-            config
-                .get_default_connection()
-                .and_then(ConnectionSpec::api_key),
-            Some("test-api-key")
+        let conn = config.get_default_connection().unwrap();
+        assert_matches!(
+            conn.auth().clone(),
+            ConnectionAuthSpec::ApiKey { api_key } if api_key == "test-api-key"
         );
     }
 
@@ -238,6 +542,7 @@ default_connection = "default"
 
 [connections.default]
 endpoint = "http://127.0.0.1:6543"
+auth = "direct"
 headers = ["X-Tenant: acme"]
 "#,
         )
@@ -259,18 +564,23 @@ headers = ["X-Tenant: acme"]
 
         apply_env_overrides(
             &mut doc,
-            [(
-                "SCOPEQL_CONFIG_CONNECTIONS_DEFAULT_API_KEY".to_string(),
-                "test-api-key".to_string(),
-            )],
+            [
+                (
+                    "SCOPEQL_CONFIG_CONNECTIONS_DEFAULT_AUTH".to_string(),
+                    "api_key".to_string(),
+                ),
+                (
+                    "SCOPEQL_CONFIG_CONNECTIONS_DEFAULT_API_KEY".to_string(),
+                    "test-api-key".to_string(),
+                ),
+            ],
         );
 
         let config = Config::deserialize(doc.into_deserializer()).unwrap();
-        assert_eq!(
-            config
-                .get_default_connection()
-                .and_then(ConnectionSpec::api_key),
-            Some("test-api-key")
+        let conn = config.get_default_connection().unwrap();
+        assert_matches!(
+            conn.auth().clone(),
+            ConnectionAuthSpec::ApiKey { api_key } if api_key == "test-api-key"
         );
     }
 
