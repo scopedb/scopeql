@@ -276,6 +276,7 @@ pub(crate) fn get_connections(name: Option<&str>) {
             }
             headers.push_str(header);
         }
+        row.push(headers);
         table.add_row(row);
     }
 
