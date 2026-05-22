@@ -19,6 +19,7 @@ use std::str::FromStr;
 
 use dialoguer::Confirm;
 use dialoguer::Input;
+use dialoguer::Password;
 use dialoguer::Select;
 use serde::Deserialize;
 use serde::Serialize;
@@ -118,6 +119,18 @@ fn apply_env_overrides(config: &mut DocumentMut, env: impl IntoIterator<Item = (
 
         if let Some(name) = path
             .strip_prefix("connections_")
+            .and_then(|path| path.strip_suffix("_auth"))
+        {
+            set_toml_path(
+                config,
+                &["connections", name, "auth"],
+                toml_edit::value(value),
+            );
+            continue;
+        }
+
+        if let Some(name) = path
+            .strip_prefix("connections_")
             .and_then(|path| path.strip_suffix("_api_key"))
         {
             set_toml_path(
@@ -196,7 +209,7 @@ pub struct ConnectionSpec {
     #[serde(skip_serializing_if = "Vec::is_empty")]
     headers: Vec<String>,
 
-    #[serde(default, flatten)]
+    #[serde(flatten)]
     auth: ConnectionAuthSpec,
 }
 
@@ -214,10 +227,9 @@ impl ConnectionSpec {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "auth")]
 pub enum ConnectionAuthSpec {
-    #[default]
     #[serde(rename = "direct")]
     Direct,
     #[serde(rename = "api_key")]
@@ -228,7 +240,7 @@ impl ConnectionAuthSpec {
     pub fn kind(&self) -> &'static str {
         match self {
             Self::Direct => "direct",
-            Self::ApiKey { .. } => "api_Key",
+            Self::ApiKey { .. } => "api_key",
         }
     }
 }
@@ -331,6 +343,7 @@ pub(crate) fn set_connection(name: String) {
             .default(DEFAULT_URL.to_string())
             .interact_text()
             .expect("failed to read endpoint");
+
         let auth = prompt_auth_by_kind(None);
 
         ConnectionSpec {
@@ -366,7 +379,7 @@ fn prompt_existing_auth(current: &ConnectionAuthSpec) -> ConnectionAuthSpec {
     match action {
         0 => current.clone(),
         1 => prompt_auth_fields(current),
-        2 => prompt_auth_by_kind(Some(current.kind())),
+        2 => prompt_auth_by_kind(Some(current)),
         _ => unreachable!("dialoguer returned an unknown auth action"),
     }
 }
@@ -375,38 +388,39 @@ fn prompt_auth_fields(current: &ConnectionAuthSpec) -> ConnectionAuthSpec {
     match current {
         ConnectionAuthSpec::Direct => ConnectionAuthSpec::Direct,
         ConnectionAuthSpec::ApiKey { .. } => ConnectionAuthSpec::ApiKey {
-            api_key: Input::new()
-                .with_prompt("API key")
-                .interact_text()
-                .expect("failed to read API key"),
+            api_key: prompt_api_key(),
         },
     }
 }
 
-fn prompt_auth_by_kind(default: Option<&str>) -> ConnectionAuthSpec {
-    loop {
-        let mut prompt = Input::new().with_prompt("Auth type");
-        if let Some(default) = default {
-            prompt = prompt.default(default.to_string());
-        }
+fn prompt_auth_by_kind(default: Option<&ConnectionAuthSpec>) -> ConnectionAuthSpec {
+    let kinds = ["direct", "api_key"];
+    let default = match default {
+        None | Some(ConnectionAuthSpec::Direct) => 0,
+        Some(ConnectionAuthSpec::ApiKey { .. }) => 1,
+    };
 
-        let auth_type = prompt.interact_text().expect("failed to read auth type");
+    let selection = Select::new()
+        .with_prompt("Auth type")
+        .items(kinds)
+        .default(default)
+        .interact()
+        .expect("failed to read auth type");
 
-        match auth_type.trim() {
-            "direct" => return ConnectionAuthSpec::Direct,
-            "api_key" => {
-                return ConnectionAuthSpec::ApiKey {
-                    api_key: Input::new()
-                        .with_prompt("API key")
-                        .interact_text()
-                        .expect("failed to read API key"),
-                };
-            }
-            auth_type => {
-                eprintln!("Unsupported auth type '{auth_type}'. Use 'direct' or 'api_key'.")
-            }
-        }
+    match selection {
+        0 => ConnectionAuthSpec::Direct,
+        1 => ConnectionAuthSpec::ApiKey {
+            api_key: prompt_api_key(),
+        },
+        _ => unreachable!("dialoguer returned an unknown auth type"),
     }
+}
+
+fn prompt_api_key() -> String {
+    Password::new()
+        .with_prompt("API key")
+        .interact()
+        .expect("failed to read API key")
 }
 
 fn write_connection(doc: &mut DocumentMut, name: &str, conn: &ConnectionSpec) {
@@ -528,6 +542,7 @@ default_connection = "default"
 
 [connections.default]
 endpoint = "http://127.0.0.1:6543"
+auth = "direct"
 headers = ["X-Tenant: acme"]
 "#,
         )
