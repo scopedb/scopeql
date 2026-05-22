@@ -16,7 +16,7 @@ use std::path::PathBuf;
 
 use clap::ValueHint;
 
-use crate::config::DEFAULT_URL;
+use crate::config;
 use crate::load::DataFormat;
 use crate::version::version;
 
@@ -82,6 +82,7 @@ impl OutputFormat {
 #[derive(Debug, Clone, clap::Subcommand)]
 pub enum Subcommand {
     /// Run scopeql statements.
+    #[clap(name = "run")]
     Run {
         #[clap(flatten)]
         args: ExecArgs,
@@ -99,6 +100,7 @@ pub enum Subcommand {
         statement: Option<String>,
     },
     /// Perform a load operation of source with transformations.
+    #[clap(name = "load")]
     Load {
         #[clap(flatten)]
         args: ExecArgs,
@@ -112,50 +114,55 @@ pub enum Subcommand {
         #[clap(long, value_enum)]
         format: Option<DataFormat>,
     },
-    /// Manage the config file
+    /// Manage the config file.
     #[clap(name = "config")]
     Config {
         #[command(subcommand)]
-        cmd: ConfigSubcommand,
+        cmd: ConfigCommand,
     },
 }
 
 #[derive(Debug, Clone, clap::Subcommand)]
-pub enum ConfigSubcommand {
-    /// List all configured connections.
-    #[clap(name = "list-connections")]
-    List,
-    /// Switch to a different connection by name.
+pub enum ConfigCommand {
+    /// Describe one or many connections.
+    #[clap(name = "get-connections")]
+    GetConnections {
+        /// The name of the connection to display.
+        #[clap(value_name = "CONNECTION_NAME")]
+        name: Option<String>,
+    },
+    /// Set the default connection in the config file.
     #[clap(name = "use-connection")]
-    Use {
+    UseConnection {
         /// The name of the connection to use.
+        #[clap(value_name = "CONNECTION_NAME")]
         name: String,
     },
-    /// Add a new connection.
-    #[clap(name = "add-connection")]
-    Add {
+    /// Set a connection in the config file.
+    #[clap(name = "set-connection")]
+    SetConnection {
         /// The name of the new connection.
+        #[clap(value_name = "CONNECTION_NAME")]
         name: String,
-        /// The ScopeDB endpoint URL.
-        #[clap(long, default_value = DEFAULT_URL)]
-        url: String,
-        /// The API key for authentication.
-        #[clap(long)]
-        api_key: Option<String>,
-        /// Additional headers (key=value, comma-separated).
-        #[clap(long)]
-        headers: Option<String>,
-
-        /// Prompt for values interactively instead of using CLI options.
-        #[clap(long, default_value = "false")]
-        prompt: bool,
     },
-    /// Delete a connection by name.
+    /// Delete the specified connection from the config file.
     #[clap(name = "delete-connection")]
-    Delete {
+    DeleteConnection {
         /// The name of the connection to delete.
+        #[clap(value_name = "CONNECTION_NAME")]
         name: String,
     },
+}
+
+impl ConfigCommand {
+    pub fn run(self) {
+        match self {
+            ConfigCommand::GetConnections { name } => config::get_connections(name.as_deref()),
+            ConfigCommand::UseConnection { name } => config::use_connection(name.as_str()),
+            ConfigCommand::SetConnection { name } => config::set_connection(name),
+            ConfigCommand::DeleteConnection { name } => config::delete_connection(name.as_str()),
+        }
+    }
 }
 
 fn styled() -> clap::builder::Styles {

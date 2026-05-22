@@ -21,7 +21,7 @@ use reqwest::header::HeaderValue;
 use crate::Error;
 
 /// Parse a header string in the format "KEY: VALUE" into HeaderName and HeaderValue.
-pub fn parse_header(s: &str) -> Result<(HeaderName, HeaderValue), Error> {
+fn parse_header(s: &str) -> Result<(HeaderName, HeaderValue), Error> {
     let (key, value) = s
         .split_once(':')
         .ok_or_else(|| Error::new(format!("invalid header {s:?}; expected 'KEY: VALUE'")))?;

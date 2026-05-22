@@ -22,7 +22,6 @@ use logforth::filter::env_filter::EnvFilterBuilder;
 use logforth::layout::JsonLayout;
 
 use crate::command::Command;
-use crate::command::ConfigSubcommand;
 use crate::command::ExecArgs;
 use crate::command::ReplArgs;
 use crate::command::Subcommand;
@@ -99,26 +98,7 @@ fn main() {
             let config = load_config(config_file);
             load::load(&config, quiet, file, transform, format);
         }
-        Some(Subcommand::Config { cmd }) => match cmd {
-            ConfigSubcommand::List => {
-                config::config_list();
-            }
-            ConfigSubcommand::Use { name } => {
-                config::config_use(&name);
-            }
-            ConfigSubcommand::Add {
-                name,
-                url,
-                api_key,
-                headers,
-                prompt,
-            } => {
-                config::config_add(name, url, api_key, headers, prompt);
-            }
-            ConfigSubcommand::Delete { name } => {
-                config::config_delete(&name);
-            }
-        },
+        Some(Subcommand::Config { cmd }) => cmd.run(),
     }
 }
 

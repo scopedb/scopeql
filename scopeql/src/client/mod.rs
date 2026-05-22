@@ -32,7 +32,9 @@ use crate::client::protocol::StatementRequest;
 use crate::client::protocol::StatementRequestParams;
 use crate::client::protocol::StatementStatus;
 use crate::command::OutputFormat;
+use crate::config::ConnectionAuthSpec;
 use crate::config::ConnectionSpec;
+use crate::header::parse_headers;
 use crate::output::format_result_set;
 
 mod connection;
@@ -52,9 +54,13 @@ impl ScopeQLClient {
             .expect("failed to create HTTP client");
 
         let endpoint = connection.endpoint().to_owned();
-        let api_key = connection.api_key().map(str::to_owned);
-        let headers = crate::header::parse_headers(connection.headers())
+        let headers = parse_headers(connection.headers())
             .unwrap_or_else(|err| panic!("invalid headers in config: {err}"));
+
+        let api_key = match connection.auth() {
+            ConnectionAuthSpec::Direct => None,
+            ConnectionAuthSpec::ApiKey { api_key } => Some(api_key.to_string()),
+        };
 
         ScopeQLClient {
             client: Client::new(endpoint, client, api_key, headers).unwrap(),
