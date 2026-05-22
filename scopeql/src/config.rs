@@ -355,8 +355,9 @@ fn prompt_existing_auth(current: &ConnectionAuthSpec) -> ConnectionAuthSpec {
         "Modify current auth fields",
         "Enter auth type",
     ];
+
     let action = Select::new()
-        .with_prompt("Auth")
+        .with_prompt(format!("Auth [{}]", current.kind()))
         .items(actions)
         .default(0)
         .interact()
@@ -373,10 +374,9 @@ fn prompt_existing_auth(current: &ConnectionAuthSpec) -> ConnectionAuthSpec {
 fn prompt_auth_fields(current: &ConnectionAuthSpec) -> ConnectionAuthSpec {
     match current {
         ConnectionAuthSpec::Direct => ConnectionAuthSpec::Direct,
-        ConnectionAuthSpec::ApiKey { api_key } => ConnectionAuthSpec::ApiKey {
+        ConnectionAuthSpec::ApiKey { .. } => ConnectionAuthSpec::ApiKey {
             api_key: Input::new()
                 .with_prompt("API key")
-                .default(api_key.clone())
                 .interact_text()
                 .expect("failed to read API key"),
         },
@@ -413,7 +413,7 @@ fn write_connection(doc: &mut DocumentMut, name: &str, conn: &ConnectionSpec) {
     if !doc["connections"].is_table() {
         doc["connections"] = toml_edit::Item::Table(toml_edit::Table::new());
     }
-    if !doc["connections"][name].is_table() {
+    if doc["connections"].get(name).is_none() {
         doc["connections"][name] = toml_edit::Item::Table(toml_edit::Table::new());
     }
 
