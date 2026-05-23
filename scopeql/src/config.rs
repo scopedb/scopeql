@@ -17,6 +17,8 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
 
+use anyhow::Error;
+use anyhow::anyhow;
 use dialoguer::Confirm;
 use dialoguer::Input;
 use dialoguer::Password;
@@ -24,7 +26,10 @@ use dialoguer::Select;
 use serde::Deserialize;
 use serde::Serialize;
 use serde::de::IntoDeserializer;
+use toml_edit::Array;
 use toml_edit::DocumentMut;
+use toml_edit::Item;
+use toml_edit::Table;
 
 pub const DEFAULT_URL: &str = "http://127.0.0.1:6543";
 
@@ -185,6 +190,11 @@ impl Config {
     }
 }
 
+fn deserialize_toml(path: &PathBuf, doc: DocumentMut) -> Result<Config, Error> {
+    Config::deserialize(doc.into_deserializer())
+        .map_err(|err| anyhow!("failed to deserialize config on {}: {err}", path.display()))
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -194,7 +204,7 @@ impl Default for Config {
                 ConnectionSpec {
                     endpoint: DEFAULT_URL.to_string(),
                     headers: vec![],
-                    auth: ConnectionAuthSpec::Direct,
+                    auth: Some(ConnectionAuthSpec::Direct),
                 },
             )]),
         }
@@ -210,7 +220,8 @@ pub struct ConnectionSpec {
     headers: Vec<String>,
 
     #[serde(flatten)]
-    auth: ConnectionAuthSpec,
+    #[serde(default)]
+    auth: Option<ConnectionAuthSpec>,
 }
 
 impl ConnectionSpec {
@@ -223,7 +234,7 @@ impl ConnectionSpec {
     }
 
     pub fn auth(&self) -> &ConnectionAuthSpec {
-        &self.auth
+        self.auth.as_ref().unwrap_or(&ConnectionAuthSpec::Direct)
     }
 }
 
@@ -246,13 +257,19 @@ impl ConnectionAuthSpec {
 }
 
 pub(crate) fn get_connections(name: Option<&str>) {
-    let (_path, doc) = load_document();
-    let config =
-        Config::deserialize(doc.into_deserializer()).expect("failed to deserialize config");
+    internal_get_connections(name).unwrap_or_else(|err| {
+        eprintln!("Failed to get connections: {err}");
+        std::process::exit(1);
+    });
+}
+
+fn internal_get_connections(name: Option<&str>) -> Result<(), Error> {
+    let (path, doc) = load_document()?;
+    let config = deserialize_toml(&path, doc)?;
 
     if config.connections.is_empty() {
         println!("No connections configured.");
-        return;
+        return Ok(());
     }
 
     let connections = if let Some(name) = name {
@@ -293,13 +310,20 @@ pub(crate) fn get_connections(name: Option<&str>) {
     }
 
     println!("{table}");
+    Ok(())
 }
 
 pub(crate) fn use_connection(name: &str) {
-    let (path, mut doc) = load_document();
+    internal_use_connection(name).unwrap_or_else(|err| {
+        eprintln!("Failed to switch connection: {err}");
+        std::process::exit(1);
+    });
+}
 
-    let config =
-        Config::deserialize(doc.clone().into_deserializer()).expect("failed to deserialize config");
+fn internal_use_connection(name: &str) -> Result<(), Error> {
+    let (path, mut doc) = load_document()?;
+
+    let config = deserialize_toml(&path, doc.clone())?;
 
     if !config.connections.contains_key(name) {
         eprintln!("Connection '{name}' not found.");
@@ -313,13 +337,38 @@ pub(crate) fn use_connection(name: &str) {
     });
 
     println!("Switched to connection '{name}'");
+    Ok(())
 }
 
 pub(crate) fn set_connection(name: String) {
-    let (path, mut doc) = load_document();
+    let (path, doc) = load_document().unwrap_or_else(|err| {
+        let path = candidate_config_paths()
+            .into_iter()
+            .next()
+            .expect("no candidate config paths");
+        println!("Creating new config file at {} for {}", path.display(), err);
 
-    let mut config =
-        Config::deserialize(doc.clone().into_deserializer()).expect("failed to deserialize config");
+        let parent = path.parent().unwrap();
+        std::fs::create_dir_all(parent).unwrap_or_else(|err| {
+            panic!(
+                "failed to create config directory {}: {err}",
+                parent.display()
+            );
+        });
+
+        let mut doc = DocumentMut::new();
+        doc["default_connection"] = toml_edit::value(&name);
+        (path, doc)
+    });
+
+    internal_set_connection(name, path, doc).unwrap_or_else(|err| {
+        eprintln!("Failed to set connection: {err}");
+        std::process::exit(1);
+    });
+}
+
+fn internal_set_connection(name: String, path: PathBuf, mut doc: DocumentMut) -> Result<(), Error> {
+    let mut config = deserialize_toml(&path, doc.clone())?;
 
     let conn = if let Some(conn) = config.connections.get_mut(&name) {
         if Confirm::new()
@@ -335,7 +384,7 @@ pub(crate) fn set_connection(name: String) {
                 .expect("failed to read endpoint");
         }
 
-        conn.auth = prompt_existing_auth(&conn.auth);
+        conn.auth = Some(prompt_existing_auth(conn.auth.as_ref()));
         conn.clone()
     } else {
         let endpoint = Input::new()
@@ -349,7 +398,7 @@ pub(crate) fn set_connection(name: String) {
         ConnectionSpec {
             endpoint,
             headers: vec![],
-            auth,
+            auth: Some(auth),
         }
     };
 
@@ -360,9 +409,11 @@ pub(crate) fn set_connection(name: String) {
     });
 
     println!("Set connection '{name}' in {}", path.display());
+    Ok(())
 }
 
-fn prompt_existing_auth(current: &ConnectionAuthSpec) -> ConnectionAuthSpec {
+fn prompt_existing_auth(current: Option<&ConnectionAuthSpec>) -> ConnectionAuthSpec {
+    let current = current.unwrap_or(&ConnectionAuthSpec::Direct);
     let actions = [
         "Keep current auth",
         "Modify current auth fields",
@@ -424,29 +475,38 @@ fn prompt_api_key() -> String {
 }
 
 fn write_connection(doc: &mut DocumentMut, name: &str, conn: &ConnectionSpec) {
-    if !doc["connections"].is_table() {
-        doc["connections"] = toml_edit::Item::Table(toml_edit::Table::new());
-    }
-    if doc["connections"].get(name).is_none() {
-        doc["connections"][name] = toml_edit::Item::Table(toml_edit::Table::new());
-    }
-
-    let table = doc["connections"][name]
+    let connections = doc
         .as_table_mut()
-        .expect("connection should be a TOML table");
+        .entry("connections")
+        .or_insert(Item::Table({
+            let mut t = Table::new();
+            t.set_implicit(true);
+            t
+        }));
+    if !connections.is_table() {
+        let mut t = Table::new();
+        t.set_implicit(true);
+        *connections = Item::Table(t);
+    }
+    let connections = connections.as_table_mut().unwrap();
+
+    let table = connections
+        .entry(name)
+        .or_insert(Item::Table(toml_edit::Table::new()));
+    let table = table.as_table_mut().unwrap();
 
     table["endpoint"] = toml_edit::value(&conn.endpoint);
     if conn.headers.is_empty() {
         table.remove("headers");
     } else {
-        let mut headers = toml_edit::Array::default();
+        let mut headers = Array::default();
         for header in &conn.headers {
             headers.push(header.as_str());
         }
         table["headers"] = toml_edit::value(headers);
     }
 
-    match &conn.auth {
+    match conn.auth() {
         ConnectionAuthSpec::Direct => {
             table["auth"] = toml_edit::value("direct");
             table.remove("api_key");
@@ -459,10 +519,16 @@ fn write_connection(doc: &mut DocumentMut, name: &str, conn: &ConnectionSpec) {
 }
 
 pub(crate) fn delete_connection(name: &str) {
-    let (path, mut doc) = load_document();
+    internal_delete_connection(name).unwrap_or_else(|err| {
+        eprintln!("Failed to delete connection: {err}");
+        std::process::exit(1);
+    });
+}
 
-    let config =
-        Config::deserialize(doc.clone().into_deserializer()).expect("failed to deserialize config");
+fn internal_delete_connection(name: &str) -> Result<(), Error> {
+    let (path, mut doc) = load_document()?;
+
+    let config = deserialize_toml(&path, doc.clone())?;
 
     if !config.connections.contains_key(name) {
         eprintln!("Connection '{name}' not found.");
@@ -485,16 +551,22 @@ pub(crate) fn delete_connection(name: &str) {
     });
 
     println!("Deleted connection '{name}' from {}", path.display());
+    Ok(())
 }
 
-fn load_document() -> (PathBuf, DocumentMut) {
-    let path = candidate_config_paths()
-        .into_iter()
+fn load_document() -> Result<(PathBuf, DocumentMut), Error> {
+    let candidates = candidate_config_paths();
+    let path = candidates
+        .iter()
         .find(|path| path.exists())
-        .unwrap_or_else(|| {
-            eprintln!("No config file found. Run `scopeql config add-connection` to create one.");
-            std::process::exit(1);
-        });
+        .ok_or_else(|| {
+            let paths = candidates
+                .iter()
+                .map(|p| p.display().to_string())
+                .collect::<Vec<_>>()
+                .join(", ");
+            anyhow!("config file does not exist in any of [{}]", paths)
+        })?;
 
     let content = std::fs::read_to_string(&path).unwrap_or_else(|err| {
         panic!("failed to read config file {}: {err}", path.display());
@@ -504,7 +576,8 @@ fn load_document() -> (PathBuf, DocumentMut) {
         panic!("failed to parse config file {}: {err}", path.display());
     });
 
-    (path, doc)
+    log::info!("loaded config from {}", path.display());
+    Ok((path.clone(), doc))
 }
 
 #[cfg(test)]
@@ -628,5 +701,24 @@ headers = ["X-Tenant: acme"]
                 .unwrap_or_default(),
             ["X-Tenant: acme", "X-Trace: demo"]
         );
+    }
+
+    #[test]
+    fn test_default_auth() {
+        let config: Config = toml::from_str(
+            r#"
+default_connection = "local"
+
+[connections.local]
+endpoint = "http://127.0.0.1:9999"
+# headers and api_key will be ignored because auth type is direct by default
+api_key = "ignored-api-key"
+"#,
+        )
+        .unwrap();
+
+        let conn = config.get_default_connection().unwrap();
+        assert_eq!(conn.endpoint(), "http://127.0.0.1:9999");
+        assert_matches!(conn.auth(), ConnectionAuthSpec::Direct);
     }
 }
