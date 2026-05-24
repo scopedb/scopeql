@@ -257,27 +257,39 @@ impl ConnectionAuthSpec {
 }
 
 pub(crate) fn get_connections(name: Option<&str>) {
-    internal_get_connections(name).unwrap_or_else(|err| {
-        eprintln!("Failed to get connections: {err}");
-        std::process::exit(1);
-    });
-}
-
-fn internal_get_connections(name: Option<&str>) -> Result<(), Error> {
-    let (path, doc) = load_document()?;
-    let config = deserialize_toml(&path, doc)?;
+    let config = match load_document() {
+        Ok((path, doc)) => match deserialize_toml(&path, doc) {
+            Ok(c) => c,
+            Err(err) => {
+                eprintln!("Failed to load config: {err}");
+                std::process::exit(1);
+            }
+        },
+        Err(_) => {
+            let candidates = candidate_config_paths()
+                .iter()
+                .map(|p| p.display().to_string())
+                .collect::<Vec<_>>()
+                .join(", ");
+            log::info!("no config file found in [{candidates}]; treating as empty connections");
+            println!("No connections configured.");
+            return;
+        }
+    };
 
     if config.connections.is_empty() {
         println!("No connections configured.");
-        return Ok(());
+        return;
     }
 
     let connections = if let Some(name) = name {
-        let conn = config
-            .connections
-            .get(name)
-            .ok_or_else(|| anyhow!("Connection '{name}' not found in config."))?;
-        vec![(name, conn)]
+        match config.connections.get(name) {
+            Some(conn) => vec![(name, conn)],
+            None => {
+                eprintln!("Connection '{name}' not found.");
+                std::process::exit(1);
+            }
+        }
     } else {
         config
             .connections
@@ -311,7 +323,6 @@ fn internal_get_connections(name: Option<&str>) -> Result<(), Error> {
     }
 
     println!("{table}");
-    Ok(())
 }
 
 pub(crate) fn use_connection(name: &str) {
@@ -322,7 +333,7 @@ pub(crate) fn use_connection(name: &str) {
 }
 
 fn internal_use_connection(name: &str) -> Result<(), Error> {
-    let (path, mut doc) = load_document()?;
+    let (path, mut doc) = load_document().map_err(|_| anyhow!("Connection '{name}' not found."))?;
 
     let config = deserialize_toml(&path, doc.clone())?;
 
@@ -525,7 +536,7 @@ pub(crate) fn delete_connection(name: &str) {
 }
 
 fn internal_delete_connection(name: &str) -> Result<(), Error> {
-    let (path, mut doc) = load_document()?;
+    let (path, mut doc) = load_document().map_err(|_| anyhow!("Connection '{name}' not found."))?;
 
     let config = deserialize_toml(&path, doc.clone())?;
 
@@ -556,12 +567,9 @@ fn load_document() -> Result<(PathBuf, DocumentMut), Error> {
         .iter()
         .find(|path| path.exists())
         .ok_or_else(|| {
-            let paths = candidates
-                .iter()
-                .map(|p| p.display().to_string())
-                .collect::<Vec<_>>()
-                .join(", ");
-            anyhow!("config file does not exist in any of [{}]", paths)
+            anyhow!(
+                "no config file found; run `scopeql config set-connection <name>` to create one"
+            )
         })?;
 
     let content = std::fs::read_to_string(path)
