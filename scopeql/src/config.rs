@@ -190,7 +190,7 @@ impl Config {
     }
 }
 
-fn deserialize_toml(path: &PathBuf, doc: DocumentMut) -> Result<Config, Error> {
+fn deserialize_toml(path: &Path, doc: DocumentMut) -> Result<Config, Error> {
     Config::deserialize(doc.into_deserializer())
         .map_err(|err| anyhow!("failed to deserialize config on {}: {err}", path.display()))
 }
@@ -273,9 +273,10 @@ fn internal_get_connections(name: Option<&str>) -> Result<(), Error> {
     }
 
     let connections = if let Some(name) = name {
-        let conn = config.connections.get(name).unwrap_or_else(|| {
-            panic!("Connection '{name}' not found in config.");
-        });
+        let conn = config
+            .connections
+            .get(name)
+            .ok_or_else(|| anyhow!("Connection '{name}' not found in config."))?;
         vec![(name, conn)]
     } else {
         config
@@ -326,35 +327,34 @@ fn internal_use_connection(name: &str) -> Result<(), Error> {
     let config = deserialize_toml(&path, doc.clone())?;
 
     if !config.connections.contains_key(name) {
-        eprintln!("Connection '{name}' not found.");
-        std::process::exit(1);
+        return Err(anyhow!("Connection '{name}' not found."));
     }
 
     set_toml_path(&mut doc, &["default_connection"], toml_edit::value(name));
 
-    std::fs::write(&path, doc.to_string()).unwrap_or_else(|err| {
-        panic!("failed to write config file {}: {err}", path.display());
-    });
+    std::fs::write(&path, doc.to_string())
+        .map_err(|err| anyhow!("failed to write config file {}: {err}", path.display()))?;
 
     println!("Switched to connection '{name}'");
     Ok(())
 }
 
 pub(crate) fn set_connection(name: String) {
-    let (path, doc) = load_document().unwrap_or_else(|err| {
+    let (path, doc) = load_document().unwrap_or_else(|_err| {
         let path = candidate_config_paths()
             .into_iter()
             .next()
             .expect("no candidate config paths");
-        println!("Creating new config file at {} for {}", path.display(), err);
+        println!("Creating new config file at {}", path.display());
 
         let parent = path.parent().unwrap();
-        std::fs::create_dir_all(parent).unwrap_or_else(|err| {
-            panic!(
+        if let Err(err) = std::fs::create_dir_all(parent) {
+            eprintln!(
                 "failed to create config directory {}: {err}",
                 parent.display()
             );
-        });
+            std::process::exit(1);
+        }
 
         let mut doc = DocumentMut::new();
         doc["default_connection"] = toml_edit::value(&name);
@@ -404,9 +404,8 @@ fn internal_set_connection(name: String, path: PathBuf, mut doc: DocumentMut) ->
 
     write_connection(&mut doc, &name, &conn);
 
-    std::fs::write(&path, doc.to_string()).unwrap_or_else(|err| {
-        panic!("failed to write config file {}: {err}", path.display());
-    });
+    std::fs::write(&path, doc.to_string())
+        .map_err(|err| anyhow!("failed to write config file {}: {err}", path.display()))?;
 
     println!("Set connection '{name}' in {}", path.display());
     Ok(())
@@ -531,14 +530,12 @@ fn internal_delete_connection(name: &str) -> Result<(), Error> {
     let config = deserialize_toml(&path, doc.clone())?;
 
     if !config.connections.contains_key(name) {
-        eprintln!("Connection '{name}' not found.");
-        std::process::exit(1);
+        return Err(anyhow!("Connection '{name}' not found."));
     }
 
     if config.default_connection == name {
         let Some(other) = config.connections.keys().find(|k| *k != name).cloned() else {
-            eprintln!("Cannot delete the only connection.");
-            std::process::exit(1);
+            return Err(anyhow!("Cannot delete the only connection."));
         };
         set_toml_path(&mut doc, &["default_connection"], toml_edit::value(&other));
         println!("Switched to connection '{other}'");
@@ -546,9 +543,8 @@ fn internal_delete_connection(name: &str) -> Result<(), Error> {
 
     doc["connections"].as_table_mut().unwrap().remove(name);
 
-    std::fs::write(&path, doc.to_string()).unwrap_or_else(|err| {
-        panic!("failed to write config file {}: {err}", path.display());
-    });
+    std::fs::write(&path, doc.to_string())
+        .map_err(|err| anyhow!("failed to write config file {}: {err}", path.display()))?;
 
     println!("Deleted connection '{name}' from {}", path.display());
     Ok(())
@@ -568,13 +564,11 @@ fn load_document() -> Result<(PathBuf, DocumentMut), Error> {
             anyhow!("config file does not exist in any of [{}]", paths)
         })?;
 
-    let content = std::fs::read_to_string(&path).unwrap_or_else(|err| {
-        panic!("failed to read config file {}: {err}", path.display());
-    });
+    let content = std::fs::read_to_string(path)
+        .map_err(|err| anyhow!("failed to read config file {}: {err}", path.display()))?;
 
-    let doc = DocumentMut::from_str(&content).unwrap_or_else(|err| {
-        panic!("failed to parse config file {}: {err}", path.display());
-    });
+    let doc = DocumentMut::from_str(&content)
+        .map_err(|err| anyhow!("failed to parse config file {}: {err}", path.display()))?;
 
     log::info!("loaded config from {}", path.display());
     Ok((path.clone(), doc))
