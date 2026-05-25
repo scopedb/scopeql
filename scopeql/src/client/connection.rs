@@ -46,9 +46,7 @@ impl Client {
     ) -> Result<Self, Error> {
         let authorization = match api_key.filter(|api_key| !api_key.is_empty()) {
             Some(api_key) => Some(HeaderValue::from_str(&format!("Bearer {api_key}")).map_err(
-                |err| {
-                    Error::new("failed to build authorization header".to_string()).set_source(err)
-                },
+                |err| Error::new("failed to build authorization header").set_source(err),
             )?),
             None => None,
         };
@@ -60,7 +58,7 @@ impl Client {
                 authorization,
                 extra_headers,
             }),
-            Err(err) => Err(Error::new("failed to parse endpoint".to_string()).set_source(err)),
+            Err(err) => Err(Error::new("failed to parse endpoint").set_source(err)),
         }
     }
 
@@ -144,7 +142,7 @@ impl Client {
     fn make_url(&self, path: &str) -> Result<Url, Error> {
         self.endpoint
             .join(path)
-            .map_err(|err| Error::new("failed to construct URL".to_string()).set_source(err))
+            .map_err(|err| Error::new("failed to construct URL").set_source(err))
     }
 
     fn request_headers(&self) -> HeaderMap {

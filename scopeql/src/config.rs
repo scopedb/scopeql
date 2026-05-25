@@ -17,8 +17,6 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use anyhow::Error;
-use anyhow::anyhow;
 use dialoguer::Confirm;
 use dialoguer::Input;
 use dialoguer::Password;
@@ -30,6 +28,8 @@ use toml_edit::Array;
 use toml_edit::DocumentMut;
 use toml_edit::Item;
 use toml_edit::Table;
+
+use crate::Error;
 
 pub const DEFAULT_URL: &str = "http://127.0.0.1:6543";
 
@@ -191,8 +191,12 @@ impl Config {
 }
 
 fn deserialize_toml(path: &Path, doc: DocumentMut) -> Result<Config, Error> {
-    Config::deserialize(doc.into_deserializer())
-        .map_err(|err| anyhow!("failed to deserialize config on {}: {err}", path.display()))
+    Config::deserialize(doc.into_deserializer()).map_err(|err| {
+        Error::new(format!(
+            "failed to deserialize config on {}: {err}",
+            path.display()
+        ))
+    })
 }
 
 impl Default for Config {
@@ -325,25 +329,30 @@ pub(crate) fn get_connections(name: Option<&str>) {
 }
 
 pub(crate) fn use_connection(name: &str) {
-    internal_use_connection(name).unwrap_or_else(|err| {
+    do_use_connection(name).unwrap_or_else(|err| {
         eprintln!("Failed to switch connection: {err}");
         std::process::exit(1);
     });
 }
 
-fn internal_use_connection(name: &str) -> Result<(), Error> {
-    let (path, mut doc) = load_document().map_err(|_| anyhow!("Connection '{name}' not found."))?;
+fn do_use_connection(name: &str) -> Result<(), Error> {
+    let (path, mut doc) =
+        load_document().map_err(|_| Error::new(format!("Connection '{name}' not found.")))?;
 
     let config = deserialize_toml(&path, doc.clone())?;
 
     if !config.connections.contains_key(name) {
-        return Err(anyhow!("Connection '{name}' not found."));
+        return Err(Error::new(format!("Connection '{name}' not found.")));
     }
 
     set_toml_path(&mut doc, &["default_connection"], toml_edit::value(name));
 
-    std::fs::write(&path, doc.to_string())
-        .map_err(|err| anyhow!("failed to write config file {}: {err}", path.display()))?;
+    std::fs::write(&path, doc.to_string()).map_err(|err| {
+        Error::new(format!(
+            "failed to write config file {}: {err}",
+            path.display()
+        ))
+    })?;
 
     println!("Switched to connection '{name}'");
     Ok(())
@@ -355,6 +364,7 @@ pub(crate) fn set_connection(name: String) {
             .into_iter()
             .next()
             .expect("no candidate config paths");
+
         println!("Creating new config file at {}", path.display());
 
         let parent = path.parent().unwrap();
@@ -371,13 +381,13 @@ pub(crate) fn set_connection(name: String) {
         (path, doc)
     });
 
-    internal_set_connection(name, path, doc).unwrap_or_else(|err| {
+    do_set_connection(name, path, doc).unwrap_or_else(|err| {
         eprintln!("Failed to set connection: {err}");
         std::process::exit(1);
     });
 }
 
-fn internal_set_connection(name: String, path: PathBuf, mut doc: DocumentMut) -> Result<(), Error> {
+fn do_set_connection(name: String, path: PathBuf, mut doc: DocumentMut) -> Result<(), Error> {
     let mut config = deserialize_toml(&path, doc.clone())?;
 
     let conn = if let Some(conn) = config.connections.get_mut(&name) {
@@ -414,8 +424,12 @@ fn internal_set_connection(name: String, path: PathBuf, mut doc: DocumentMut) ->
 
     write_connection(&mut doc, &name, &conn);
 
-    std::fs::write(&path, doc.to_string())
-        .map_err(|err| anyhow!("failed to write config file {}: {err}", path.display()))?;
+    std::fs::write(&path, doc.to_string()).map_err(|err| {
+        Error::new(format!(
+            "failed to write config file {}: {err}",
+            path.display()
+        ))
+    })?;
 
     println!("Set connection '{name}' in {}", path.display());
     Ok(())
@@ -527,24 +541,25 @@ fn write_connection(doc: &mut DocumentMut, name: &str, conn: &ConnectionSpec) {
 }
 
 pub(crate) fn delete_connection(name: &str) {
-    internal_delete_connection(name).unwrap_or_else(|err| {
+    do_delete_connection(name).unwrap_or_else(|err| {
         eprintln!("Failed to delete connection: {err}");
         std::process::exit(1);
     });
 }
 
-fn internal_delete_connection(name: &str) -> Result<(), Error> {
-    let (path, mut doc) = load_document().map_err(|_| anyhow!("Connection '{name}' not found."))?;
+fn do_delete_connection(name: &str) -> Result<(), Error> {
+    let (path, mut doc) =
+        load_document().map_err(|_| Error::new(format!("Connection '{name}' not found.")))?;
 
     let config = deserialize_toml(&path, doc.clone())?;
 
     if !config.connections.contains_key(name) {
-        return Err(anyhow!("Connection '{name}' not found."));
+        return Err(Error::new(format!("Connection '{name}' not found.")));
     }
 
     if config.default_connection == name {
         let Some(other) = config.connections.keys().find(|k| *k != name).cloned() else {
-            return Err(anyhow!("Cannot delete the only connection."));
+            return Err(Error::new("Cannot delete the only connection."));
         };
         set_toml_path(&mut doc, &["default_connection"], toml_edit::value(&other));
         println!("Switched to connection '{other}'");
@@ -552,8 +567,12 @@ fn internal_delete_connection(name: &str) -> Result<(), Error> {
 
     doc["connections"].as_table_mut().unwrap().remove(name);
 
-    std::fs::write(&path, doc.to_string())
-        .map_err(|err| anyhow!("failed to write config file {}: {err}", path.display()))?;
+    std::fs::write(&path, doc.to_string()).map_err(|err| {
+        Error::new(format!(
+            "failed to write config file {}: {err}",
+            path.display()
+        ))
+    })?;
 
     println!("Deleted connection '{name}' from {}", path.display());
     Ok(())
@@ -565,16 +584,24 @@ fn load_document() -> Result<(PathBuf, DocumentMut), Error> {
         .iter()
         .find(|path| path.exists())
         .ok_or_else(|| {
-            anyhow!(
-                "no config file found; run `scopeql config set-connection <name>` to create one"
+            Error::new(
+                "no config file found; run `scopeql config set-connection <name>` to create one",
             )
         })?;
 
-    let content = std::fs::read_to_string(path)
-        .map_err(|err| anyhow!("failed to read config file {}: {err}", path.display()))?;
+    let content = std::fs::read_to_string(path).map_err(|err| {
+        Error::new(format!(
+            "failed to read config file {}: {err}",
+            path.display()
+        ))
+    })?;
 
-    let doc = DocumentMut::from_str(&content)
-        .map_err(|err| anyhow!("failed to parse config file {}: {err}", path.display()))?;
+    let doc = DocumentMut::from_str(&content).map_err(|err| {
+        Error::new(format!(
+            "failed to parse config file {}: {err}",
+            path.display()
+        ))
+    })?;
 
     log::info!("loaded config from {}", path.display());
     Ok((path.clone(), doc))

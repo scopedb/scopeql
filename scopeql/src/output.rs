@@ -61,7 +61,7 @@ fn format_table(
 
     let rows = result_set
         .into_values()
-        .or_raise(|| Error::new("failed to convert result rows".to_string()))?;
+        .or_raise(|| Error::new("failed to convert result rows"))?;
 
     const TABLE_STYLE_PRESET: &str = "||--+-++|    ++++++";
     let mut table = comfy_table::Table::new();
@@ -124,7 +124,7 @@ fn format_json(result_set: ResultSet) -> Result<String, Error> {
         .collect::<Vec<_>>();
     let rows = result_set
         .into_values()
-        .or_raise(|| Error::new("failed to convert result rows".to_string()))?;
+        .or_raise(|| Error::new("failed to convert result rows"))?;
 
     let json_rows = rows
         .into_iter()
@@ -150,7 +150,7 @@ fn format_csv(result_set: ResultSet) -> Result<String, Error> {
         .collect::<Vec<_>>();
     let rows = result_set
         .into_values()
-        .or_raise(|| Error::new("failed to convert result rows".to_string()))?;
+        .or_raise(|| Error::new("failed to convert result rows"))?;
 
     let mut output = String::new();
     for (index, field) in fields.iter().enumerate() {
@@ -184,7 +184,7 @@ fn format_jsonl(result_set: ResultSet) -> Result<String, Error> {
         .collect::<Vec<_>>();
     let rows = result_set
         .into_values()
-        .or_raise(|| Error::new("failed to convert result rows".to_string()))?;
+        .or_raise(|| Error::new("failed to convert result rows"))?;
 
     let mut output = String::new();
     for row in rows {
