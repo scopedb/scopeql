@@ -204,7 +204,7 @@ impl Default for Config {
                 ConnectionSpec {
                     endpoint: DEFAULT_URL.to_string(),
                     headers: vec![],
-                    auth: Some(ConnectionAuthSpec::Direct),
+                    auth: ConnectionAuthSpec::Direct,
                 },
             )]),
         }
@@ -221,7 +221,7 @@ pub struct ConnectionSpec {
 
     #[serde(flatten)]
     #[serde(default)]
-    auth: Option<ConnectionAuthSpec>,
+    auth: ConnectionAuthSpec,
 }
 
 impl ConnectionSpec {
@@ -234,7 +234,7 @@ impl ConnectionSpec {
     }
 
     pub fn auth(&self) -> &ConnectionAuthSpec {
-        self.auth.as_ref().unwrap_or(&ConnectionAuthSpec::Direct)
+        &self.auth
     }
 }
 
@@ -395,7 +395,7 @@ fn internal_set_connection(name: String, path: PathBuf, mut doc: DocumentMut) ->
                 .expect("failed to read endpoint");
         }
 
-        conn.auth = Some(prompt_existing_auth(conn.auth.as_ref()));
+        conn.auth = prompt_existing_auth(&conn.auth);
         conn.clone()
     } else {
         let endpoint = Input::new()
@@ -409,7 +409,7 @@ fn internal_set_connection(name: String, path: PathBuf, mut doc: DocumentMut) ->
         ConnectionSpec {
             endpoint,
             headers: vec![],
-            auth: Some(auth),
+            auth: auth,
         }
     };
 
@@ -422,8 +422,7 @@ fn internal_set_connection(name: String, path: PathBuf, mut doc: DocumentMut) ->
     Ok(())
 }
 
-fn prompt_existing_auth(current: Option<&ConnectionAuthSpec>) -> ConnectionAuthSpec {
-    let current = current.unwrap_or(&ConnectionAuthSpec::Direct);
+fn prompt_existing_auth(current: &ConnectionAuthSpec) -> ConnectionAuthSpec {
     let actions = [
         "Keep current auth",
         "Modify current auth fields",
@@ -703,24 +702,5 @@ headers = ["X-Tenant: acme"]
                 .unwrap_or_default(),
             ["X-Tenant: acme", "X-Trace: demo"]
         );
-    }
-
-    #[test]
-    fn test_default_auth() {
-        let config: Config = toml::from_str(
-            r#"
-default_connection = "local"
-
-[connections.local]
-endpoint = "http://127.0.0.1:9999"
-# headers and api_key will be ignored because auth type is direct by default
-api_key = "ignored-api-key"
-"#,
-        )
-        .unwrap();
-
-        let conn = config.get_default_connection().unwrap();
-        assert_eq!(conn.endpoint(), "http://127.0.0.1:9999");
-        assert_matches!(conn.auth(), ConnectionAuthSpec::Direct);
     }
 }
