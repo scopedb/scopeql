@@ -220,7 +220,6 @@ pub struct ConnectionSpec {
     headers: Vec<String>,
 
     #[serde(flatten)]
-    #[serde(default)]
     auth: ConnectionAuthSpec,
 }
 
@@ -409,7 +408,7 @@ fn internal_set_connection(name: String, path: PathBuf, mut doc: DocumentMut) ->
         ConnectionSpec {
             endpoint,
             headers: vec![],
-            auth: auth,
+            auth,
         }
     };
 
