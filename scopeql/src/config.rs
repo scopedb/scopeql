@@ -757,6 +757,7 @@ headers = ["X-Tenant: acme"]
 
         let expected_first_path = candidates.first().cloned().unwrap();
         let conn_name = "test-conn".to_string();
+        let conn_endpoint = "https://example.scopedb.com:9876".to_string();
 
         // Invoke set_connection_impl with a mocked ConnectionSpec to avoid
         // interactive dialoguer prompts.  Lines 384-414 (prompt_connection_spec)
@@ -764,7 +765,7 @@ headers = ["X-Tenant: acme"]
         // is exercised.
         set_connection_impl(conn_name.clone(), |name, path, doc| {
             let conn = ConnectionSpec {
-                endpoint: DEFAULT_URL.to_string(),
+                endpoint: conn_endpoint.clone(),
                 headers: vec![],
                 auth: ConnectionAuthSpec::Direct,
             };
@@ -777,7 +778,7 @@ headers = ["X-Tenant: acme"]
 
         assert_eq!(config.default_connection, conn_name);
         let written_conn = config.get_connection(&conn_name).unwrap();
-        assert_eq!(written_conn.endpoint(), DEFAULT_URL);
+        assert_eq!(written_conn.endpoint(), &conn_endpoint);
         assert_matches!(written_conn.auth(), ConnectionAuthSpec::Direct);
 
         // Clean up the created file and directory
