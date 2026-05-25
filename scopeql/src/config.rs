@@ -24,10 +24,7 @@ use dialoguer::Select;
 use serde::Deserialize;
 use serde::Serialize;
 use serde::de::IntoDeserializer;
-use toml_edit::Array;
 use toml_edit::DocumentMut;
-use toml_edit::Item;
-use toml_edit::Table;
 
 use crate::Error;
 
@@ -260,37 +257,26 @@ impl ConnectionAuthSpec {
 }
 
 pub(crate) fn get_connections(name: Option<&str>) {
-    let config = match load_document() {
-        Ok((path, doc)) => match deserialize_toml(&path, doc) {
-            Ok(c) => c,
-            Err(err) => {
-                eprintln!("Failed to load config: {err}");
-                std::process::exit(1);
-            }
-        },
-        Err(_) => {
-            let candidates = candidate_config_paths()
-                .iter()
-                .map(|p| p.display().to_string())
-                .collect::<Vec<_>>()
-                .join(", ");
-            log::info!("no config file found in [{candidates}]; treating as empty connections");
-            println!("No connections configured.");
-            return;
-        }
-    };
+    do_get_connections(name).unwrap_or_else(|err| {
+        eprintln!("Failed to get connections: {err}");
+        std::process::exit(1);
+    });
+}
+
+fn do_get_connections(name: Option<&str>) -> Result<(), Error> {
+    let (path, doc) = load_document()?;
+    let config = deserialize_toml(&path, doc)?;
 
     if config.connections.is_empty() {
         println!("No connections configured.");
-        return;
+        return Ok(());
     }
 
     let connections = if let Some(name) = name {
         match config.connections.get(name) {
             Some(conn) => vec![(name, conn)],
             None => {
-                eprintln!("Connection '{name}' not found.");
-                std::process::exit(1);
+                return Err(Error::new(format!("Connection '{name}' not found.")));
             }
         }
     } else {
@@ -326,6 +312,7 @@ pub(crate) fn get_connections(name: Option<&str>) {
     }
 
     println!("{table}");
+    Ok(())
 }
 
 pub(crate) fn use_connection(name: &str) {
@@ -336,9 +323,7 @@ pub(crate) fn use_connection(name: &str) {
 }
 
 fn do_use_connection(name: &str) -> Result<(), Error> {
-    let (path, mut doc) =
-        load_document().map_err(|_| Error::new(format!("Connection '{name}' not found.")))?;
-
+    let (path, mut doc) = load_document()?;
     let config = deserialize_toml(&path, doc.clone())?;
 
     if !config.connections.contains_key(name) {
@@ -359,35 +344,14 @@ fn do_use_connection(name: &str) -> Result<(), Error> {
 }
 
 pub(crate) fn set_connection(name: String) {
-    let (path, doc) = load_document().unwrap_or_else(|_err| {
-        let path = candidate_config_paths()
-            .into_iter()
-            .next()
-            .expect("no candidate config paths");
-
-        println!("Creating new config file at {}", path.display());
-
-        let parent = path.parent().unwrap();
-        if let Err(err) = std::fs::create_dir_all(parent) {
-            eprintln!(
-                "failed to create config directory {}: {err}",
-                parent.display()
-            );
-            std::process::exit(1);
-        }
-
-        let mut doc = DocumentMut::new();
-        doc["default_connection"] = toml_edit::value(&name);
-        (path, doc)
-    });
-
-    do_set_connection(name, path, doc).unwrap_or_else(|err| {
+    do_set_connection(name).unwrap_or_else(|err| {
         eprintln!("Failed to set connection: {err}");
         std::process::exit(1);
     });
 }
 
-fn do_set_connection(name: String, path: PathBuf, mut doc: DocumentMut) -> Result<(), Error> {
+fn do_set_connection(name: String) -> Result<(), Error> {
+    let (path, mut doc) = load_document()?;
     let mut config = deserialize_toml(&path, doc.clone())?;
 
     let conn = if let Some(conn) = config.connections.get_mut(&name) {
@@ -500,28 +464,28 @@ fn write_connection(doc: &mut DocumentMut, name: &str, conn: &ConnectionSpec) {
     let connections = doc
         .as_table_mut()
         .entry("connections")
-        .or_insert(Item::Table({
-            let mut t = Table::new();
+        .or_insert(toml_edit::Item::Table({
+            let mut t = toml_edit::Table::new();
             t.set_implicit(true);
             t
         }));
     if !connections.is_table() {
-        let mut t = Table::new();
+        let mut t = toml_edit::Table::new();
         t.set_implicit(true);
-        *connections = Item::Table(t);
+        *connections = toml_edit::Item::Table(t);
     }
     let connections = connections.as_table_mut().unwrap();
 
     let table = connections
         .entry(name)
-        .or_insert(Item::Table(toml_edit::Table::new()));
+        .or_insert(toml_edit::Item::Table(toml_edit::Table::new()));
     let table = table.as_table_mut().unwrap();
 
     table["endpoint"] = toml_edit::value(&conn.endpoint);
     if conn.headers.is_empty() {
         table.remove("headers");
     } else {
-        let mut headers = Array::default();
+        let mut headers = toml_edit::Array::default();
         for header in &conn.headers {
             headers.push(header.as_str());
         }
@@ -548,9 +512,7 @@ pub(crate) fn delete_connection(name: &str) {
 }
 
 fn do_delete_connection(name: &str) -> Result<(), Error> {
-    let (path, mut doc) =
-        load_document().map_err(|_| Error::new(format!("Connection '{name}' not found.")))?;
-
+    let (path, mut doc) = load_document()?;
     let config = deserialize_toml(&path, doc.clone())?;
 
     if !config.connections.contains_key(name) {
