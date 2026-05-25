@@ -344,17 +344,48 @@ fn do_use_connection(name: &str) -> Result<(), Error> {
 }
 
 pub(crate) fn set_connection(name: String) {
-    do_set_connection(name).unwrap_or_else(|err| {
+    set_connection_impl(name, do_set_connection)
+}
+
+fn set_connection_impl<F>(name: String, do_fn: F)
+where
+    F: FnOnce(String, PathBuf, DocumentMut) -> Result<(), Error>,
+{
+    let (path, doc) = load_document().unwrap_or_else(|_err| {
+        let path = candidate_config_paths()
+            .into_iter()
+            .next()
+            .expect("no candidate config paths");
+
+        println!("Creating new config file at {}", path.display());
+
+        let parent = path.parent().unwrap();
+        if let Err(err) = std::fs::create_dir_all(parent) {
+            eprintln!(
+                "failed to create config directory {}: {err}",
+                parent.display()
+            );
+            std::process::exit(1);
+        }
+
+        let mut doc = DocumentMut::new();
+        doc["default_connection"] = toml_edit::value(&name);
+        (path, doc)
+    });
+    do_fn(name, path, doc).unwrap_or_else(|err| {
         eprintln!("Failed to set connection: {err}");
         std::process::exit(1);
     });
 }
 
-fn do_set_connection(name: String) -> Result<(), Error> {
-    let (path, mut doc) = load_document()?;
+fn do_set_connection(name: String, path: PathBuf, doc: DocumentMut) -> Result<(), Error> {
     let mut config = deserialize_toml(&path, doc.clone())?;
+    let conn = prompt_connection_spec(&mut config, &name);
+    do_set_connection_with_spec(name, path, doc, conn)
+}
 
-    let conn = if let Some(conn) = config.connections.get_mut(&name) {
+fn prompt_connection_spec(config: &mut Config, name: &str) -> ConnectionSpec {
+    if let Some(conn) = config.connections.get_mut(name) {
         if Confirm::new()
             .with_prompt("Change endpoint?")
             .default(false)
@@ -384,8 +415,15 @@ fn do_set_connection(name: String) -> Result<(), Error> {
             headers: vec![],
             auth,
         }
-    };
+    }
+}
 
+pub(crate) fn do_set_connection_with_spec(
+    name: String,
+    path: PathBuf,
+    mut doc: DocumentMut,
+    conn: ConnectionSpec,
+) -> Result<(), Error> {
     write_connection(&mut doc, &name, &conn);
 
     std::fs::write(&path, doc.to_string()).map_err(|err| {
@@ -690,5 +728,71 @@ headers = ["X-Tenant: acme"]
                 .unwrap_or_default(),
             ["X-Tenant: acme", "X-Trace: demo"]
         );
+    }
+
+    #[test]
+    fn set_connection_creates_new_file_when_no_config_exists() {
+        let candidates = candidate_config_paths();
+
+        // Backup existing config files by renaming them
+        let mut backups: Vec<(PathBuf, Option<PathBuf>)> = Vec::new();
+        for path in &candidates {
+            if path.exists() {
+                let backup = path.with_extension("toml.bak");
+                let _ = std::fs::remove_file(&backup);
+                std::fs::rename(path, &backup).unwrap();
+                backups.push((path.clone(), Some(backup)));
+            } else {
+                backups.push((path.clone(), None));
+            }
+        }
+
+        // Verify no config files remain
+        for path in &candidates {
+            assert!(
+                !path.exists(),
+                "candidate {path:?} still exists after moving"
+            );
+        }
+
+        let expected_first_path = candidates.first().cloned().unwrap();
+        let conn_name = "test-conn".to_string();
+        let conn_endpoint = "https://example.scopedb.com:9876".to_string();
+
+        // Invoke set_connection_impl with a mocked ConnectionSpec to avoid
+        // interactive dialoguer prompts.  Lines 384-414 (prompt_connection_spec)
+        // are bypassed; the real file-writing path (do_set_connection_with_spec)
+        // is exercised.
+        set_connection_impl(conn_name.clone(), |name, path, doc| {
+            let conn = ConnectionSpec {
+                endpoint: conn_endpoint.clone(),
+                headers: vec![],
+                auth: ConnectionAuthSpec::Direct,
+            };
+            do_set_connection_with_spec(name, path, doc, conn)
+        });
+
+        // Verify the config file was written with the correct content
+        let content = std::fs::read_to_string(&expected_first_path).unwrap();
+        let config: Config = toml::from_str(&content).unwrap();
+
+        assert_eq!(config.default_connection, conn_name);
+        let written_conn = config.get_connection(&conn_name).unwrap();
+        assert_eq!(written_conn.endpoint(), &conn_endpoint);
+        assert_matches!(written_conn.auth(), ConnectionAuthSpec::Direct);
+
+        // Clean up the created file and directory
+        std::fs::remove_file(&expected_first_path).unwrap();
+        let parent = expected_first_path.parent().unwrap();
+        if parent.exists() && parent.read_dir().unwrap().next().is_none() {
+            let _ = std::fs::remove_dir(parent);
+        }
+
+        // Restore original config files
+        for (original, backup) in backups {
+            if let Some(backup) = backup {
+                std::fs::rename(&backup, &original).unwrap();
+            }
+        }
     }
 }
