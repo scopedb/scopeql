@@ -37,6 +37,7 @@ default_connection = "default"
 
 [connections.default]
 endpoint = "https://<cell>.<provider>.scopedb.cloud"
+auth = "api_key"
 api_key = "your-api-key"
 headers = ["X-Tenant: acme"]
 ```
