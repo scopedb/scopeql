@@ -194,10 +194,14 @@ pub enum TokenKind {
     COMMENT,
     #[token("CREATE", ignore(case))]
     CREATE,
+    #[token("DATA", ignore(case))]
+    DATA,
     #[token("DATABASES", ignore(case))]
     DATABASES,
     #[token("DATABASE", ignore(case))]
     DATABASE,
+    #[token("DAY", ignore(case))]
+    DAY,
     #[token("DELETE", ignore(case))]
     DELETE,
     #[token("DESC", ignore(case))]
@@ -304,6 +308,8 @@ pub enum TokenKind {
     REPLACE,
     #[token("RESUME", ignore(case))]
     RESUME,
+    #[token("RETENTION", ignore(case))]
+    RETENTION,
     #[token("RIGHT", ignore(case))]
     RIGHT,
     #[token("SAMPLE", ignore(case))]

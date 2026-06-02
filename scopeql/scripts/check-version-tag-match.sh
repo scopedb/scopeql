@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set -o nounset
 
 if [[ "${GITHUB_REF_TYPE}" != "tag" ]]; then
   echo "GITHUB_REF_TYPE=${GITHUB_REF_TYPE} Not a tag, skipping version check"
@@ -20,12 +21,23 @@ if [[ "${GITHUB_REF_TYPE}" != "tag" ]]; then
 fi
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-cd "$SCRIPT_DIR/.."
+PACKAGE_DIR=$( dirname "$SCRIPT_DIR" )
+WORKSPACE_DIR=$( dirname "$PACKAGE_DIR" )
 
+cd "$PACKAGE_DIR"
 VERSION=$( cargo metadata --format-version=1 --no-deps | jq -r '.packages[] | select(.name == "scopeql") | .version' )
-echo "VERSION: $VERSION"
+echo "CARGO VERSION: $VERSION"
 echo "GITHUB_REF_NAME: $GITHUB_REF_NAME"
 if [[ "$GITHUB_REF_NAME" != "v$VERSION" ]]; then
   echo "Version tag does not match the version in Cargo.toml"
+  exit 1
+fi
+
+cd "$WORKSPACE_DIR"
+VERSION=$( cat pyproject.toml | yq -p toml -r '.project.version' )
+echo "PYTHON VERSION: $VERSION"
+echo "GITHUB_REF_NAME: $GITHUB_REF_NAME"
+if [[ "$GITHUB_REF_NAME" != "v$VERSION" ]]; then
+  echo "Version tag does not match the version in pyproject.toml"
   exit 1
 fi

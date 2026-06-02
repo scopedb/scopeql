@@ -15,8 +15,6 @@
 use serde::Deserialize;
 use serde::Serialize;
 
-shadow_rs::shadow!(build);
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BuildInfo {
     pub branch: &'static str,
@@ -31,16 +29,27 @@ pub struct BuildInfo {
 }
 
 pub const fn build_info() -> BuildInfo {
+    let dirty = env!("SCOPEQL_GIT_DIRTY").eq_ignore_ascii_case("true");
+    let clean = !dirty;
+
+    let commit = env!("SCOPEQL_GIT_COMMIT_HASH");
+    let commit_short = if commit.len() >= 8 {
+        let (commit_short, _) = commit.split_at(8);
+        commit_short
+    } else {
+        commit
+    };
+
     BuildInfo {
-        branch: build::BRANCH,
-        commit: build::COMMIT_HASH,
-        commit_short: build::SHORT_COMMIT,
-        clean: build::GIT_CLEAN,
-        source_time: env!("SOURCE_TIMESTAMP"),
-        build_time: env!("BUILD_TIMESTAMP"),
-        rustc: build::RUST_VERSION,
-        target: build::BUILD_TARGET,
-        version: build::PKG_VERSION,
+        branch: env!("SCOPEQL_GIT_BRANCH"),
+        commit,
+        commit_short,
+        clean,
+        source_time: env!("SCOPEQL_SOURCE_TIMESTAMP"),
+        build_time: env!("SCOPEQL_BUILD_TIMESTAMP"),
+        rustc: env!("SCOPEQL_RUSTC_VERSION"),
+        target: env!("SCOPEQL_BUILD_TARGET"),
+        version: env!("CARGO_PKG_VERSION"),
     }
 }
 

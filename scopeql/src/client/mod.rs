@@ -32,7 +32,9 @@ use crate::client::protocol::StatementRequest;
 use crate::client::protocol::StatementRequestParams;
 use crate::client::protocol::StatementStatus;
 use crate::command::OutputFormat;
-use crate::config::ConnectionConfig;
+use crate::config::ConnectionAuthSpec;
+use crate::config::ConnectionSpec;
+use crate::header::parse_headers;
 use crate::output::format_result_set;
 
 mod connection;
@@ -45,20 +47,25 @@ pub struct ScopeQLClient {
 }
 
 impl ScopeQLClient {
-    pub fn from_connection(connection: &ConnectionConfig) -> Self {
+    pub fn from_connection(connection: &ConnectionSpec) -> Result<Self, Error> {
         let client = reqwest::ClientBuilder::new()
             .no_proxy()
             .build()
             .expect("failed to create HTTP client");
 
         let endpoint = connection.endpoint().to_owned();
-        let api_key = connection.api_key().map(str::to_owned);
-        let headers = crate::header::parse_headers(connection.headers())
-            .unwrap_or_else(|err| panic!("invalid headers in config: {err}"));
+        let headers = parse_headers(connection.headers())
+            .or_raise(|| Error::new("invalid headers in config"))?;
 
-        ScopeQLClient {
-            client: Client::new(endpoint, client, api_key, headers).unwrap(),
-        }
+        let api_key = match connection.auth() {
+            ConnectionAuthSpec::Direct => None,
+            ConnectionAuthSpec::ApiKey { api_key } => Some(api_key.to_string()),
+        };
+
+        Ok(ScopeQLClient {
+            client: Client::new(endpoint, client, api_key, headers)
+                .or_raise(|| Error::new("invalid connection config"))?,
+        })
     }
 
     pub async fn load_jsonlines(
@@ -180,5 +187,54 @@ impl ScopeQLClient {
                 bail!(Error::new(format!("failed to cancel statement: {err}")));
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::Config;
+
+    fn config_from_str(content: &str) -> Config {
+        toml::from_str(content).unwrap()
+    }
+
+    #[test]
+    fn from_connection_rejects_invalid_endpoint() {
+        let config = config_from_str(
+            r#"
+default_connection = "default"
+
+[connections.default]
+endpoint = ""
+auth = "direct"
+"#,
+        );
+        let connection = config
+            .get_default_connection()
+            .expect("test config should have a default connection");
+
+        let err = ScopeQLClient::from_connection(connection).unwrap_err();
+        assert_eq!(err.to_string(), "invalid connection config");
+    }
+
+    #[test]
+    fn from_connection_rejects_invalid_headers() {
+        let config = config_from_str(
+            r#"
+default_connection = "default"
+
+[connections.default]
+endpoint = "http://127.0.0.1:6543"
+auth = "direct"
+headers = ["missing colon"]
+"#,
+        );
+        let connection = config
+            .get_default_connection()
+            .expect("test config should have a default connection");
+
+        let err = ScopeQLClient::from_connection(connection).unwrap_err();
+        assert_eq!(err.to_string(), "invalid headers in config");
     }
 }

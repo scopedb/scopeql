@@ -48,7 +48,7 @@ pub enum ReplSubCommand {
     #[command(name = "/cancel")]
     Cancel(CommandCancel),
     /// Show help.
-    #[command(name = "/help")]
+    #[command(name = "/help", alias = "/?")]
     Help(CommandHelp),
 }
 
@@ -63,17 +63,17 @@ pub struct CommandConnection {
 #[derive(Debug, Parser)]
 #[command(disable_help_flag = true)]
 pub struct CommandFormat {
-    /// The output format to use.
+    /// The output format to use; if not specified, show the current format.
     #[arg(value_enum, value_name = "FORMAT")]
-    pub format: OutputFormat,
+    pub format: Option<OutputFormat>,
 }
 
 #[derive(Debug, Parser)]
 #[command(disable_help_flag = true)]
 pub struct CommandTimer {
-    /// Enable or disable timing display.
+    /// Enable or disable timing display; if not specified, show the current mode.
     #[arg(value_enum, value_name = "on|off")]
-    pub mode: TimerMode,
+    pub mode: Option<TimerMode>,
 }
 
 #[derive(Debug, Clone, Copy, clap::ValueEnum)]
@@ -143,13 +143,12 @@ fn render_repl_command_list(cmd: &mut Command) -> String {
 
 fn command_usage(command: &mut Command) -> String {
     let usage = command.render_usage().to_string();
-    let usage = usage
+    usage
         .trim()
         .strip_prefix("Usage:")
         .map(str::trim)
         .unwrap_or_else(|| usage.trim())
-        .to_string();
-    usage
+        .to_string()
 }
 
 fn command_about(command: &Command) -> String {
@@ -316,4 +315,36 @@ fn append_usage(message: &mut String, usage: Option<String>) {
         .unwrap_or(usage);
 
     message.push_str(&format!("\nusage: {usage}"));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn format_command_accepts_no_argument() {
+        let cmd = ReplCommand::try_parse_from(["", "/format"]).unwrap();
+
+        assert!(matches!(
+            cmd.cmd,
+            ReplSubCommand::Format(CommandFormat { format: None })
+        ));
+    }
+
+    #[test]
+    fn timer_command_accepts_no_argument() {
+        let cmd = ReplCommand::try_parse_from(["", "/timer"]).unwrap();
+
+        assert!(matches!(
+            cmd.cmd,
+            ReplSubCommand::Timer(CommandTimer { mode: None })
+        ));
+    }
+
+    #[test]
+    fn help_command_accepts_question_mark_alias() {
+        let cmd = ReplCommand::try_parse_from(["", "/?"]).unwrap();
+
+        assert!(matches!(cmd.cmd, ReplSubCommand::Help(_)));
+    }
 }

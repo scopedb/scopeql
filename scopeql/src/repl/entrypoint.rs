@@ -17,6 +17,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use clap::Parser;
+use exn::Result;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
 use mea::latch::Latch;
@@ -34,6 +35,7 @@ use reedline::Signal;
 use reedline::default_emacs_keybindings;
 use scopeql_parser::TokenKind;
 
+use crate::Error;
 use crate::client::ScopeQLClient;
 use crate::command::OutputFormat;
 use crate::config::Config;
@@ -99,7 +101,7 @@ pub struct ReplState<'a> {
 }
 
 impl<'a> ReplState<'a> {
-    fn new(config: &'a Config) -> Self {
+    fn new(config: &'a Config) -> Result<Self, Error> {
         let connection_name = config.default_connection_name().to_owned();
         let connection = config
             .get_connection(&connection_name)
@@ -113,15 +115,15 @@ impl<'a> ReplState<'a> {
             show_timer,
         ))));
 
-        Self {
+        Ok(Self {
             config,
             connection_name,
-            client: ScopeQLClient::from_connection(connection),
+            client: ScopeQLClient::from_connection(connection)?,
             prompt: CommandLinePrompt::new(Arc::clone(&prompt_state)),
             prompt_state,
             output_format,
             show_timer,
-        }
+        })
     }
 
     fn endpoint(&self) -> &str {
@@ -153,19 +155,20 @@ impl<'a> ReplState<'a> {
         self.refresh_prompt_status();
     }
 
-    fn switch_connection(&mut self, name: String) -> Result<(), String> {
+    fn switch_connection(&mut self, name: String) -> Result<(), Error> {
         let Some(connection) = self.config.get_connection(&name) else {
             let profiles = self
                 .config
                 .connection_names()
                 .collect::<Vec<_>>()
                 .join(", ");
-            return Err(format!(
+            return Err(Error::new(format!(
                 "unknown connection profile {name:?}; available profiles: {profiles}"
-            ));
+            ))
+            .into());
         };
 
-        self.client = ScopeQLClient::from_connection(connection);
+        self.client = ScopeQLClient::from_connection(connection)?;
         self.connection_name = name;
         self.refresh_prompt_status();
         Ok(())
@@ -173,7 +176,13 @@ impl<'a> ReplState<'a> {
 }
 
 pub fn entrypoint(config: &Config) {
-    let mut repl = ReplState::new(config);
+    let mut repl = match ReplState::new(config) {
+        Ok(repl) => repl,
+        Err(err) => {
+            eprintln!("error: failed to initialize REPL: {err}");
+            return;
+        }
+    };
 
     let mut keybindings = default_emacs_keybindings();
     keybindings.add_binding(
@@ -268,17 +277,24 @@ pub fn entrypoint(config: &Config) {
                     );
                 }
                 ReplSubCommand::Format(format) => {
-                    repl.set_output_format(format.format);
-                    println!("Output format is set to {}", repl.output_format.as_str());
+                    if let Some(format) = format.format {
+                        repl.set_output_format(format);
+                        println!("Output format is set to {}", repl.output_format.as_str());
+                    } else {
+                        println!("Output format is {}", repl.output_format.as_str());
+                    }
                 }
                 ReplSubCommand::Timer(timer) => match timer.mode {
-                    TimerMode::On => {
+                    Some(TimerMode::On) => {
                         repl.set_show_timer(true);
                         println!("Timer is set to on");
                     }
-                    TimerMode::Off => {
+                    Some(TimerMode::Off) => {
                         repl.set_show_timer(false);
                         println!("Timer is set to off");
+                    }
+                    None => {
+                        println!("Timer is {}", if repl.show_timer { "on" } else { "off" });
                     }
                 },
                 ReplSubCommand::Cancel(cancel) => cancel.run(&repl.client),

@@ -35,7 +35,13 @@ pub fn execute(
     let connection = config
         .get_default_connection()
         .expect("no default connection in config");
-    let client = ScopeQLClient::from_connection(connection);
+    let client = match ScopeQLClient::from_connection(connection) {
+        Ok(client) => client,
+        Err(err) => {
+            eprintln_and_error(format_args!("failed to create client from config: {err:?}"));
+            std::process::exit(1);
+        }
+    };
 
     let statements = match top_level_statements(&stmts) {
         Ok(statements) => statements,

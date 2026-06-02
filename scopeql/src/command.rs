@@ -16,6 +16,7 @@ use std::path::PathBuf;
 
 use clap::ValueHint;
 
+use crate::config;
 use crate::load::DataFormat;
 use crate::version::version;
 
@@ -81,6 +82,7 @@ impl OutputFormat {
 #[derive(Debug, Clone, clap::Subcommand)]
 pub enum Subcommand {
     /// Run scopeql statements.
+    #[clap(name = "run")]
     Run {
         #[clap(flatten)]
         args: ExecArgs,
@@ -98,6 +100,7 @@ pub enum Subcommand {
         statement: Option<String>,
     },
     /// Perform a load operation of source with transformations.
+    #[clap(name = "load")]
     Load {
         #[clap(flatten)]
         args: ExecArgs,
@@ -111,23 +114,55 @@ pub enum Subcommand {
         #[clap(long, value_enum)]
         format: Option<DataFormat>,
     },
-    /// Generate command-line interface utilities.
-    #[clap(name = "gen")]
-    Generate {
-        /// Write output to `<file>` instead of stdout.
-        #[clap(short = 'o', long = "output", value_name = "file", value_hint = ValueHint::FilePath)]
-        output_file: Option<PathBuf>,
-
-        /// The target to generate.
-        #[clap(value_enum)]
-        target: GenerateTarget,
+    /// Manage the config file.
+    #[clap(name = "config")]
+    Config {
+        #[command(subcommand)]
+        cmd: ConfigCommand,
     },
 }
 
-#[derive(Debug, Clone, clap::ValueEnum)]
-pub enum GenerateTarget {
-    /// Generate the default config file.
-    Config,
+#[derive(Debug, Clone, clap::Subcommand)]
+pub enum ConfigCommand {
+    /// Describe one or many connections.
+    #[clap(name = "get-connections")]
+    GetConnections {
+        /// The name of the connection to display.
+        #[clap(value_name = "CONNECTION_NAME")]
+        name: Option<String>,
+    },
+    /// Set the default connection in the config file.
+    #[clap(name = "use-connection")]
+    UseConnection {
+        /// The name of the connection to use.
+        #[clap(value_name = "CONNECTION_NAME")]
+        name: String,
+    },
+    /// Set a connection in the config file.
+    #[clap(name = "set-connection")]
+    SetConnection {
+        /// The name of the new connection.
+        #[clap(value_name = "CONNECTION_NAME")]
+        name: String,
+    },
+    /// Delete the specified connection from the config file.
+    #[clap(name = "delete-connection")]
+    DeleteConnection {
+        /// The name of the connection to delete.
+        #[clap(value_name = "CONNECTION_NAME")]
+        name: String,
+    },
+}
+
+impl ConfigCommand {
+    pub fn run(self) {
+        match self {
+            ConfigCommand::GetConnections { name } => config::get_connections(name.as_deref()),
+            ConfigCommand::UseConnection { name } => config::use_connection(name.as_str()),
+            ConfigCommand::SetConnection { name } => config::set_connection(name),
+            ConfigCommand::DeleteConnection { name } => config::delete_connection(name.as_str()),
+        }
+    }
 }
 
 fn styled() -> clap::builder::Styles {
