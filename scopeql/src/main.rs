@@ -18,7 +18,7 @@ use std::num::NonZeroUsize;
 
 use clap::Parser;
 use logforth::append::file::FileBuilder;
-use logforth::filter::env_filter::EnvFilterBuilder;
+use logforth::filter::rustlog::RustLogFilterBuilder;
 use logforth::layout::JsonLayout;
 
 use crate::command::Command;
@@ -121,7 +121,7 @@ fn setup_logger() {
 
     logforth::starter_log::builder()
         .dispatch(|b| {
-            b.filter(EnvFilterBuilder::from_default_env_or("info").build())
+            b.filter(RustLogFilterBuilder::from_default_env_or("info").build())
                 .append(append)
         })
         .apply();
