@@ -27,7 +27,7 @@ use crate::command::OutputFormat;
 use crate::global::rt;
 
 #[derive(Debug, Parser)]
-#[command(name = "", disable_help_flag = true, disable_help_subcommand = true)]
+#[command(name = "", disable_help_subcommand = true)]
 pub struct ReplCommand {
     #[command(subcommand)]
     pub cmd: ReplSubCommand,
@@ -38,10 +38,10 @@ pub enum ReplSubCommand {
     /// Switch connection profile.
     #[command(name = "/connection")]
     Connection(CommandConnection),
-    /// Set output format.
+    /// Display or set output format.
     #[command(name = "/format")]
     Format(CommandFormat),
-    /// Enable or disable timing display.
+    /// Display or set the timing display mode.
     #[command(name = "/timer")]
     Timer(CommandTimer),
     /// Cancel the statement with the given ID.
@@ -53,7 +53,6 @@ pub enum ReplSubCommand {
 }
 
 #[derive(Debug, Parser)]
-#[command(disable_help_flag = true)]
 pub struct CommandConnection {
     /// The connection name to use.
     #[arg(value_name = "NAME")]
@@ -61,7 +60,6 @@ pub struct CommandConnection {
 }
 
 #[derive(Debug, Parser)]
-#[command(disable_help_flag = true)]
 pub struct CommandFormat {
     /// The output format to use; if not specified, show the current format.
     #[arg(value_enum, value_name = "FORMAT")]
@@ -69,10 +67,9 @@ pub struct CommandFormat {
 }
 
 #[derive(Debug, Parser)]
-#[command(disable_help_flag = true)]
 pub struct CommandTimer {
     /// Enable or disable timing display; if not specified, show the current mode.
-    #[arg(value_enum, value_name = "on|off")]
+    #[arg(value_enum)]
     pub mode: Option<TimerMode>,
 }
 
@@ -83,10 +80,9 @@ pub enum TimerMode {
 }
 
 #[derive(Debug, Parser)]
-#[command(disable_help_flag = true)]
 pub struct CommandCancel {
     /// The ID of the statement to cancel.
-    #[arg(value_name = "ID")]
+    #[arg(value_name = "STATEMENT_ID")]
     pub statement_id: String,
 }
 
