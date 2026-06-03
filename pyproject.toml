@@ -18,7 +18,7 @@ build-backend = "maturin"
 
 [project]
 name = "scopeql"
-version = "0.5.1"
+version = "0.6.0"
 description = "A command-line interface for ScopeDB"
 authors = [{ name = "ScopeDB Inc.", email = "tison@scopedb.io" }]
 classifiers = [
