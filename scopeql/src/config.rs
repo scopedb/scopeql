@@ -178,6 +178,14 @@ pub struct Config {
 }
 
 impl Config {
+    pub fn default_connection_name(&self) -> &str {
+        &self.default_connection
+    }
+
+    pub fn connection_names(&self) -> impl Iterator<Item = &str> {
+        self.connections.keys().map(String::as_str)
+    }
+
     pub fn get_connection(&self, name: &str) -> Option<&ConnectionSpec> {
         self.connections.get(name)
     }

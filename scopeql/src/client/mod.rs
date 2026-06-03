@@ -47,7 +47,7 @@ pub struct ScopeQLClient {
 }
 
 impl ScopeQLClient {
-    pub fn from_connection(connection: &ConnectionSpec) -> Self {
+    pub fn from_connection(connection: &ConnectionSpec) -> Result<Self, Error> {
         let client = reqwest::ClientBuilder::new()
             .no_proxy()
             .build()
@@ -55,16 +55,17 @@ impl ScopeQLClient {
 
         let endpoint = connection.endpoint().to_owned();
         let headers = parse_headers(connection.headers())
-            .unwrap_or_else(|err| panic!("invalid headers in config: {err}"));
+            .or_raise(|| Error::new("invalid headers in config"))?;
 
         let api_key = match connection.auth() {
             ConnectionAuthSpec::Direct => None,
             ConnectionAuthSpec::ApiKey { api_key } => Some(api_key.to_string()),
         };
 
-        ScopeQLClient {
-            client: Client::new(endpoint, client, api_key, headers).unwrap(),
-        }
+        Ok(ScopeQLClient {
+            client: Client::new(endpoint, client, api_key, headers)
+                .or_raise(|| Error::new("invalid connection config"))?,
+        })
     }
 
     pub async fn load_jsonlines(

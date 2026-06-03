@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::fmt::Write;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::time::Duration;
 
-use clap::CommandFactory;
 use clap::Parser;
+use exn::Result;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
 use mea::latch::Latch;
@@ -35,6 +35,7 @@ use reedline::Signal;
 use reedline::default_emacs_keybindings;
 use scopeql_parser::TokenKind;
 
+use crate::Error;
 use crate::client::ScopeQLClient;
 use crate::command::OutputFormat;
 use crate::config::Config;
@@ -42,11 +43,21 @@ use crate::global;
 use crate::repl::command::ReplCommand;
 use crate::repl::command::ReplSubCommand;
 use crate::repl::command::TimerMode;
+use crate::repl::command::render_repl_help;
+use crate::repl::command::render_repl_parse_error;
 use crate::repl::highlight::ScopeQLHighlighter;
 use crate::repl::lexer;
 use crate::repl::prompt::CommandLinePrompt;
+use crate::repl::prompt::PromptRenderState;
+use crate::repl::prompt::StatusHinter;
 use crate::repl::validate::ScopeQLValidator;
 use crate::tokenizer::tokenize;
+
+// TODO: This is a workaround for reedline's Ctrl-C handling, which clears the
+// buffer before bubbling up Signal::CtrlC and prevents us from deciding whether
+// to clear or exit based on the prompt contents.
+const CTRL_C_PROMPT_COMMAND: &str = "\0scopeql:prompt-ctrl-c\0";
+const CTRL_D_PROMPT_COMMAND: &str = "\0scopeql:prompt-ctrl-d\0";
 
 fn make_file_history() -> Option<FileBackedHistory> {
     let Some(home_dir) = dirs::home_dir() else {
@@ -64,20 +75,113 @@ fn make_file_history() -> Option<FileBackedHistory> {
     }
 }
 
-pub fn entrypoint(config: &Config) {
-    let connection = config
-        .get_default_connection()
-        .expect("no default connection in config");
-    let endpoint = connection.endpoint().to_owned();
-    let mut output_format = OutputFormat::Table;
-    let mut show_timer = true;
+fn prompt_status_line(
+    connection_name: &str,
+    endpoint: &str,
+    output_format: OutputFormat,
+    show_timer: bool,
+) -> String {
+    format!(
+        "{} · {} · {} · timer {}",
+        connection_name,
+        endpoint,
+        output_format.as_str(),
+        if show_timer { "on" } else { "off" },
+    )
+}
 
-    let (client, prompt) = if endpoint.is_empty() {
-        eprintln!("error: endpoint is empty");
-        return;
-    } else {
-        let client = ScopeQLClient::from_connection(connection);
-        (client, CommandLinePrompt::new(endpoint))
+pub struct ReplState<'a> {
+    pub config: &'a Config,
+    pub connection_name: String,
+    pub client: ScopeQLClient,
+    pub prompt: CommandLinePrompt,
+    pub prompt_state: Arc<Mutex<PromptRenderState>>,
+    pub output_format: OutputFormat,
+    pub show_timer: bool,
+}
+
+impl<'a> ReplState<'a> {
+    fn new(config: &'a Config) -> Result<Self, Error> {
+        let connection_name = config.default_connection_name().to_owned();
+        let connection = config
+            .get_connection(&connection_name)
+            .expect("no default connection in config");
+        let output_format = OutputFormat::Table;
+        let show_timer = true;
+        let prompt_state = Arc::new(Mutex::new(PromptRenderState::new(prompt_status_line(
+            &connection_name,
+            connection.endpoint(),
+            output_format,
+            show_timer,
+        ))));
+
+        Ok(Self {
+            config,
+            connection_name,
+            client: ScopeQLClient::from_connection(connection)?,
+            prompt: CommandLinePrompt::new(Arc::clone(&prompt_state)),
+            prompt_state,
+            output_format,
+            show_timer,
+        })
+    }
+
+    fn endpoint(&self) -> &str {
+        self.config
+            .get_connection(&self.connection_name)
+            .map(|connection| connection.endpoint())
+            .unwrap_or_default()
+    }
+
+    fn refresh_prompt_status(&self) {
+        self.prompt_state
+            .lock()
+            .unwrap()
+            .set_line(prompt_status_line(
+                &self.connection_name,
+                self.endpoint(),
+                self.output_format,
+                self.show_timer,
+            ));
+    }
+
+    fn set_output_format(&mut self, output_format: OutputFormat) {
+        self.output_format = output_format;
+        self.refresh_prompt_status();
+    }
+
+    fn set_show_timer(&mut self, show_timer: bool) {
+        self.show_timer = show_timer;
+        self.refresh_prompt_status();
+    }
+
+    fn switch_connection(&mut self, name: String) -> Result<(), Error> {
+        let Some(connection) = self.config.get_connection(&name) else {
+            let profiles = self
+                .config
+                .connection_names()
+                .collect::<Vec<_>>()
+                .join(", ");
+            return Err(Error::new(format!(
+                "unknown connection profile {name:?}; available profiles: {profiles}"
+            ))
+            .into());
+        };
+
+        self.client = ScopeQLClient::from_connection(connection)?;
+        self.connection_name = name;
+        self.refresh_prompt_status();
+        Ok(())
+    }
+}
+
+pub fn entrypoint(config: &Config) {
+    let mut repl = match ReplState::new(config) {
+        Ok(repl) => repl,
+        Err(err) => {
+            eprintln!("error: failed to initialize REPL: {err}");
+            return;
+        }
     };
 
     let mut keybindings = default_emacs_keybindings();
@@ -86,10 +190,23 @@ pub fn entrypoint(config: &Config) {
         KeyCode::Tab,
         ReedlineEvent::HistoryHintComplete,
     );
+    keybindings.add_binding(
+        KeyModifiers::CONTROL,
+        KeyCode::Char('c'),
+        ReedlineEvent::ExecuteHostCommand(CTRL_C_PROMPT_COMMAND.to_owned()),
+    );
+    keybindings.add_binding(
+        KeyModifiers::CONTROL,
+        KeyCode::Char('d'),
+        ReedlineEvent::ExecuteHostCommand(CTRL_D_PROMPT_COMMAND.to_owned()),
+    );
 
-    let hinter = DefaultHinter::default().with_style(Style::new().fg(Color::DarkGray));
+    let hinter = StatusHinter::new(
+        DefaultHinter::default().with_style(Style::new().fg(Color::DarkGray)),
+        Arc::clone(&repl.prompt_state),
+    );
 
-    let mut state = Reedline::create()
+    let mut line_editor = Reedline::create()
         .use_bracketed_paste(true)
         .with_validator(Box::new(ScopeQLValidator))
         .with_highlighter(Box::new(ScopeQLHighlighter))
@@ -97,15 +214,28 @@ pub fn entrypoint(config: &Config) {
         .with_edit_mode(Box::new(Emacs::new(keybindings)));
 
     if let Some(history) = make_file_history() {
-        state = state.with_history(Box::new(history));
+        line_editor = line_editor.with_history(Box::new(history));
     }
 
     loop {
-        let input = state.read_line(&prompt).expect("failed to read next line");
+        let input = line_editor
+            .read_line(&repl.prompt)
+            .expect("failed to read next line");
         let input = match input {
+            Signal::Success(input)
+                if input == CTRL_C_PROMPT_COMMAND || input == CTRL_D_PROMPT_COMMAND =>
+            {
+                if line_editor.current_buffer_contents().is_empty() {
+                    println!();
+                    break;
+                } else {
+                    line_editor.run_edit_commands(&[EditCommand::Clear]);
+                    continue;
+                }
+            }
             Signal::Success(input) => input,
-            Signal::CtrlC | Signal::CtrlD | Signal::ExternalBreak(_) | _ => {
-                println!("Exit");
+            _ => {
+                println!();
                 break;
             }
         };
@@ -129,50 +259,46 @@ pub fn entrypoint(config: &Config) {
             let cmd = match ReplCommand::try_parse_from(args) {
                 Ok(cmd) => cmd,
                 Err(err) => {
-                    eprintln!("{err}");
+                    eprint!("{}", render_repl_parse_error(err));
                     continue;
                 }
             };
 
             match cmd.cmd {
-                ReplSubCommand::Cancel(cancel) => cancel.run(&client),
+                ReplSubCommand::Connection(connection) => {
+                    if let Err(err) = repl.switch_connection(connection.name) {
+                        eprintln!("error: {err}");
+                        continue;
+                    }
+                    println!(
+                        "Connection is set to {} ({})",
+                        repl.connection_name,
+                        repl.endpoint()
+                    );
+                }
                 ReplSubCommand::Format(format) => {
                     if let Some(format) = format.format {
-                        output_format = format;
+                        repl.set_output_format(format);
+                        println!("Output format is set to {}", repl.output_format.as_str());
+                    } else {
+                        println!("Output format is {}", repl.output_format.as_str());
                     }
-                    println!("output format: {}", output_format.as_str());
                 }
                 ReplSubCommand::Timer(timer) => match timer.mode {
-                    None => {
-                        println!("timer: {}", if show_timer { "on" } else { "off" });
-                    }
                     Some(TimerMode::On) => {
-                        show_timer = true;
-                        println!("timer: on");
+                        repl.set_show_timer(true);
+                        println!("Timer is set to on");
                     }
                     Some(TimerMode::Off) => {
-                        show_timer = false;
-                        println!("timer: off");
+                        repl.set_show_timer(false);
+                        println!("Timer is set to off");
+                    }
+                    None => {
+                        println!("Timer is {}", if repl.show_timer { "on" } else { "off" });
                     }
                 },
-                ReplSubCommand::Help => {
-                    let cmd = ReplCommand::command();
-
-                    let width = cmd
-                        .get_subcommands()
-                        .map(|c| c.get_name().len())
-                        .max()
-                        .unwrap_or(0);
-
-                    println!("Commands:");
-                    for subcommand in cmd.get_subcommands() {
-                        let mut message = format!("  {:width$}", subcommand.get_name());
-                        if let Some(about) = subcommand.get_about() {
-                            write!(&mut message, "  {about}").unwrap();
-                        }
-                        println!("{message}");
-                    }
-                }
+                ReplSubCommand::Cancel(cancel) => cancel.run(&repl.client),
+                ReplSubCommand::Help(_) => print!("{}", render_repl_help()),
             }
             continue;
         }
@@ -240,9 +366,11 @@ pub fn entrypoint(config: &Config) {
                 }
             });
 
+            let client = &repl.client;
+            let output_format = repl.output_format;
+            let show_timer = repl.show_timer;
             let output = global::rt().block_on({
                 let pb = pb.clone();
-                let client = &client;
                 async move {
                     let fut = client.execute_statement(
                         statement_id,
@@ -287,7 +415,7 @@ pub fn entrypoint(config: &Config) {
             }
         }
 
-        state.run_edit_commands(&[EditCommand::InsertString(
+        line_editor.run_edit_commands(&[EditCommand::InsertString(
             outstanding.trim_start().to_string(),
         )]);
     }

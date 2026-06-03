@@ -4,6 +4,8 @@ All significant changes to this software be documented in this file.
 
 ## Unreleased
 
+## v0.6.0 (2026-06-03)
+
 ### Breaking Changes
 
 * Remove `--header` options and the REPL `/headers` command.
@@ -26,6 +28,7 @@ api_key = "sk_..."
 
 * Allow custom HTTP headers to be configured through connection configuration or `SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_HEADERS`.
 * Support new command `scopeql config` with subcommands `set-connection`, `delete-connection`, `get-connections`, and `use-connection` to manage connection specs.
+* Support REPL command `/connections` to list available connections and the current connection.
 
 ## v0.5.1 (2026-04-15)
 
