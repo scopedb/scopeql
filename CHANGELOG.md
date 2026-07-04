@@ -4,6 +4,22 @@ All significant changes to this software be documented in this file.
 
 ## Unreleased
 
+### Breaking Changes
+
+* Rename connection management from `scopeql config` to `scopeql connection` with subcommands `list`, `default`, `add`, and `remove`.
+* Stop falling back to an implicit local default connection when no config file or complete config environment exists.
+
+### New Features
+
+* Prompt for connection setup before entering the REPL when no config file or config environment variables exist.
+* Allow deleting the last configured connection.
+* List REPL connections when `/connect` is run without a connection name.
+
+### Bug Fixes
+
+* Reject duplicate connection names in `scopeql connection add`.
+* Show the REPL command list after an unknown REPL command.
+
 ## v0.6.0 (2026-06-03)
 
 ### Breaking Changes

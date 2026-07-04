@@ -173,6 +173,37 @@ impl<'a> ReplState<'a> {
         self.refresh_prompt_status();
         Ok(())
     }
+
+    fn list_connections(&self) {
+        let names = self.config.connection_names().collect::<Vec<_>>();
+        if names.is_empty() {
+            println!("No connections configured.");
+            return;
+        }
+
+        let mut table = comfy_table::Table::new();
+        table.load_preset(comfy_table::presets::NOTHING);
+        table.set_header(["CURRENT", "NAME", "ENDPOINT", "AUTH", "HEADERS"]);
+        for name in names {
+            let Some(connection) = self.config.get_connection(name) else {
+                continue;
+            };
+
+            let mut row = vec![];
+            if name == self.connection_name {
+                row.push("*".to_string());
+            } else {
+                row.push("".to_string());
+            }
+            row.push(name.to_string());
+            row.push(connection.endpoint().to_string());
+            row.push(connection.auth().kind().to_string());
+            row.push(connection.headers().join("\n"));
+            table.add_row(row);
+        }
+
+        println!("{table}");
+    }
 }
 
 pub fn entrypoint(config: &Config) {
@@ -265,16 +296,20 @@ pub fn entrypoint(config: &Config) {
             };
 
             match cmd.cmd {
-                ReplSubCommand::Connection(connection) => {
-                    if let Err(err) = repl.switch_connection(connection.name) {
-                        eprintln!("error: {err}");
-                        continue;
+                ReplSubCommand::Connect(connection) => {
+                    if let Some(name) = connection.name {
+                        if let Err(err) = repl.switch_connection(name) {
+                            eprintln!("error: {err}");
+                            continue;
+                        }
+                        println!(
+                            "Connection is set to {} ({})",
+                            repl.connection_name,
+                            repl.endpoint()
+                        );
+                    } else {
+                        repl.list_connections();
                     }
-                    println!(
-                        "Connection is set to {} ({})",
-                        repl.connection_name,
-                        repl.endpoint()
-                    );
                 }
                 ReplSubCommand::Format(format) => {
                     if let Some(format) = format.format {

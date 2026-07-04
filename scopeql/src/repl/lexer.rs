@@ -144,86 +144,41 @@ pub fn lex(s: &str) -> LexerResult {
 mod tests {
     use super::*;
 
+    fn complete(words: &[&str]) -> LexerResult {
+        LexerResult::Complete(words.iter().map(|word| word.to_string()).collect())
+    }
+
     #[test]
     fn test_simple_split() {
-        assert_eq!(
-            lex("foo bar baz"),
-            LexerResult::Complete(
-                ["foo", "bar", "baz"]
-                    .iter()
-                    .map(|s| s.to_string())
-                    .collect()
-            )
-        );
+        assert_eq!(lex("foo bar baz"), complete(&["foo", "bar", "baz"]));
     }
 
     #[test]
-    fn test_single_quotes() {
-        assert_eq!(
-            lex("foo 'bar baz'"),
-            LexerResult::Complete(["foo", "bar baz"].iter().map(|s| s.to_string()).collect())
-        );
-    }
-
-    #[test]
-    fn test_double_quotes() {
-        assert_eq!(
-            lex(r#"foo "bar baz""#),
-            LexerResult::Complete(["foo", "bar baz"].iter().map(|s| s.to_string()).collect())
-        );
+    fn test_quoted_words() {
+        assert_eq!(lex("foo 'bar baz'"), complete(&["foo", "bar baz"]));
+        assert_eq!(lex(r#"foo "bar baz""#), complete(&["foo", "bar baz"]));
     }
 
     #[test]
     fn test_escape_outside_quotes() {
-        assert_eq!(
-            lex(r"foo\ bar"),
-            LexerResult::Complete(["foo bar"].iter().map(|s| s.to_string()).collect())
-        );
-        assert_eq!(
-            lex(r#"foo \"bar\""#),
-            LexerResult::Complete(["foo", r#""bar""#].iter().map(|s| s.to_string()).collect())
-        );
+        assert_eq!(lex(r"foo\ bar"), complete(&["foo bar"]));
+        assert_eq!(lex(r#"foo \"bar\""#), complete(&["foo", r#""bar""#]));
     }
 
     #[test]
     fn test_escape_in_double_quotes() {
-        // Rust-style escapes work in double quotes
-        assert_eq!(
-            lex(r#""foo\nbar""#),
-            LexerResult::Complete(["foo\nbar"].iter().map(|s| s.to_string()).collect())
-        );
-        assert_eq!(
-            lex(r#""foo\tbar""#),
-            LexerResult::Complete(["foo\tbar"].iter().map(|s| s.to_string()).collect())
-        );
-        assert_eq!(
-            lex(r#""foo\rbar""#),
-            LexerResult::Complete(["foo\rbar"].iter().map(|s| s.to_string()).collect())
-        );
-        assert_eq!(
-            lex(r#""foo\0bar""#),
-            LexerResult::Complete(["foo\0bar"].iter().map(|s| s.to_string()).collect())
-        );
-        assert_eq!(
-            lex(r#""foo\"bar""#),
-            LexerResult::Complete([r#"foo"bar"#].iter().map(|s| s.to_string()).collect())
-        );
-        assert_eq!(
-            lex(r#""foo\\bar""#),
-            LexerResult::Complete([r#"foo\bar"#].iter().map(|s| s.to_string()).collect())
-        );
+        assert_eq!(lex(r#""foo\nbar""#), complete(&["foo\nbar"]));
+        assert_eq!(lex(r#""foo\tbar""#), complete(&["foo\tbar"]));
+        assert_eq!(lex(r#""foo\rbar""#), complete(&["foo\rbar"]));
+        assert_eq!(lex(r#""foo\0bar""#), complete(&["foo\0bar"]));
+        assert_eq!(lex(r#""foo\"bar""#), complete(&[r#"foo"bar"#]));
+        assert_eq!(lex(r#""foo\\bar""#), complete(&[r#"foo\bar"#]));
     }
 
     #[test]
     fn test_escape_in_single_quotes() {
-        assert_eq!(
-            lex(r"'foo\\'"),
-            LexerResult::Complete([r"foo\"].iter().map(|s| s.to_string()).collect())
-        );
-        assert_eq!(
-            lex(r"'foo\''"),
-            LexerResult::Complete([r"foo'"].iter().map(|s| s.to_string()).collect())
-        );
+        assert_eq!(lex(r"'foo\\'"), complete(&[r"foo\"]));
+        assert_eq!(lex(r"'foo\''"), complete(&[r"foo'"]));
     }
 
     #[test]
@@ -235,27 +190,15 @@ mod tests {
 
     #[test]
     fn test_escape_outside_quotes_accepts_any() {
-        // Outside quotes, backslash escapes any character
-        assert_eq!(
-            lex(r"foo\xbar"),
-            LexerResult::Complete(["fooxbar"].iter().map(|s| s.to_string()).collect())
-        );
-        assert_eq!(
-            lex(r"foo\abar"),
-            LexerResult::Complete(["fooabar"].iter().map(|s| s.to_string()).collect())
-        );
+        assert_eq!(lex(r"foo\xbar"), complete(&["fooxbar"]));
+        assert_eq!(lex(r"foo\abar"), complete(&["fooabar"]));
     }
 
     #[test]
     fn test_mixed_quotes() {
         assert_eq!(
             lex(r#"foo 'bar "baz"' qux"#),
-            LexerResult::Complete(
-                ["foo", r#"bar "baz""#, "qux"]
-                    .iter()
-                    .map(|s| s.to_string())
-                    .collect()
-            )
+            complete(&["foo", r#"bar "baz""#, "qux"])
         );
     }
 
@@ -273,16 +216,9 @@ mod tests {
     }
 
     #[test]
-    fn test_empty_and_whitespace() {
+    fn test_delimiters() {
         assert_eq!(lex(""), LexerResult::Complete(vec![]));
         assert_eq!(lex("   "), LexerResult::Complete(vec![]));
-    }
-
-    #[test]
-    fn test_multiple_spaces() {
-        assert_eq!(
-            lex("foo    bar"),
-            LexerResult::Complete(["foo", "bar"].iter().map(|s| s.to_string()).collect())
-        );
+        assert_eq!(lex("foo    bar"), complete(&["foo", "bar"]));
     }
 }

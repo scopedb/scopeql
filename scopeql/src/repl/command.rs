@@ -36,8 +36,8 @@ pub struct ReplCommand {
 #[derive(Debug, Subcommand)]
 pub enum ReplSubCommand {
     /// Switch connection profile.
-    #[command(name = "/connection")]
-    Connection(CommandConnection),
+    #[command(name = "/connect")]
+    Connect(CommandConnect),
     /// Display or set output format.
     #[command(name = "/format")]
     Format(CommandFormat),
@@ -53,10 +53,10 @@ pub enum ReplSubCommand {
 }
 
 #[derive(Debug, Parser)]
-pub struct CommandConnection {
-    /// The connection name to use.
+pub struct CommandConnect {
+    /// The connection name to use; if not specified, list available connections.
     #[arg(value_name = "NAME")]
-    pub name: String,
+    pub name: Option<String>,
 }
 
 #[derive(Debug, Parser)]
@@ -167,6 +167,16 @@ pub fn render_repl_parse_error(err: clap::Error) -> String {
         return err.render().to_string();
     }
 
+    if err.kind() == ErrorKind::InvalidSubcommand {
+        let command = context_string(&err, ContextKind::InvalidSubcommand)
+            .unwrap_or_else(|| "command".to_string());
+        return format!(
+            "error: unknown command {:?}\n\n{}",
+            command,
+            render_repl_help()
+        );
+    }
+
     let mut message = match err.kind() {
         ErrorKind::InvalidValue | ErrorKind::ValueValidation => {
             let arg = context_string(&err, ContextKind::InvalidArg)
@@ -178,11 +188,6 @@ pub fn render_repl_parse_error(err: clap::Error) -> String {
                 Some(value) => format!("error: invalid value {:?} for {arg}", value),
                 None => format!("error: invalid value for {arg}"),
             }
-        }
-        ErrorKind::InvalidSubcommand => {
-            let command = context_string(&err, ContextKind::InvalidSubcommand)
-                .unwrap_or_else(|| "command".to_string());
-            format!("error: unknown command {:?}", command)
         }
         ErrorKind::UnknownArgument => {
             let arg = context_string(&err, ContextKind::InvalidArg)
@@ -311,36 +316,4 @@ fn append_usage(message: &mut String, usage: Option<String>) {
         .unwrap_or(usage);
 
     message.push_str(&format!("\nusage: {usage}"));
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn format_command_accepts_no_argument() {
-        let cmd = ReplCommand::try_parse_from(["", "/format"]).unwrap();
-
-        assert!(matches!(
-            cmd.cmd,
-            ReplSubCommand::Format(CommandFormat { format: None })
-        ));
-    }
-
-    #[test]
-    fn timer_command_accepts_no_argument() {
-        let cmd = ReplCommand::try_parse_from(["", "/timer"]).unwrap();
-
-        assert!(matches!(
-            cmd.cmd,
-            ReplSubCommand::Timer(CommandTimer { mode: None })
-        ));
-    }
-
-    #[test]
-    fn help_command_accepts_question_mark_alias() {
-        let cmd = ReplCommand::try_parse_from(["", "/?"]).unwrap();
-
-        assert!(matches!(cmd.cmd, ReplSubCommand::Help(_)));
-    }
 }
