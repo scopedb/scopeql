@@ -43,7 +43,7 @@ fn candidate_config_paths() -> Vec<PathBuf> {
     candidates
 }
 
-pub fn load_config<P: AsRef<Path>>(config_file: Option<P>) -> Result<Option<Config>, Error> {
+pub fn try_load_config<P: AsRef<Path>>(config_file: Option<P>) -> Result<Option<Config>, Error> {
     let loaded = if let Some(file) = config_file.as_ref().map(AsRef::as_ref) {
         Some((file.to_path_buf(), read_config_document(file)?))
     } else {
@@ -70,6 +70,31 @@ pub fn load_config<P: AsRef<Path>>(config_file: Option<P>) -> Result<Option<Conf
 
     apply_env_overrides(&mut doc, std::env::vars());
     Ok(Some(deserialize_toml(&path, doc)?))
+}
+
+pub fn load_config<P: AsRef<Path>>(config_file: Option<P>) -> Config {
+    let config = match try_load_config(config_file) {
+        Ok(Some(config)) => config,
+        Ok(None) => {
+            eprintln!(
+                "error: no ScopeQL connection configured; run `scopeql connection add` to create one"
+            );
+            std::process::exit(1);
+        }
+        Err(err) => {
+            eprintln!("error: failed to load config: {err}");
+            std::process::exit(1);
+        }
+    };
+
+    if !config.has_default_connection() {
+        eprintln!(
+            "error: no default connection configured; run `scopeql connection add` to create one"
+        );
+        std::process::exit(1);
+    }
+
+    config
 }
 
 fn read_config_document(path: &Path) -> Result<DocumentMut, Error> {
@@ -311,6 +336,43 @@ pub fn set_default_connection(name: &str) {
         eprintln!("Failed to set default connection: {err}");
         std::process::exit(1);
     });
+}
+
+pub fn show_default_connection() {
+    do_show_default_connection().unwrap_or_else(|err| {
+        eprintln!("Failed to show default connection: {err}");
+        std::process::exit(1);
+    });
+}
+
+fn do_show_default_connection() -> Result<(), Error> {
+    let Some((path, doc)) = load_document()? else {
+        println!("No default connection configured.");
+        return Ok(());
+    };
+    let config = deserialize_toml(&path, doc)?;
+
+    let Some(name) = config.default_connection.as_deref() else {
+        println!("No default connection configured.");
+        return Ok(());
+    };
+
+    let Some(conn) = config.get_connection(name) else {
+        println!("No default connection configured.");
+        return Ok(());
+    };
+
+    let mut table = comfy_table::Table::new();
+    table.load_preset(comfy_table::presets::NOTHING);
+    table.set_header(["NAME", "ENDPOINT", "AUTH", "HEADERS"]);
+    table.add_row(vec![
+        name.to_string(),
+        conn.endpoint().to_string(),
+        conn.auth().kind().to_string(),
+        conn.headers().join("\n"),
+    ]);
+    println!("{table}");
+    Ok(())
 }
 
 fn do_set_default_connection(name: &str) -> Result<(), Error> {

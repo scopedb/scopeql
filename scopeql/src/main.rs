@@ -15,7 +15,6 @@
 #![feature(string_from_utf8_lossy_owned)]
 
 use std::num::NonZeroUsize;
-use std::path::PathBuf;
 
 use clap::Parser;
 use logforth::append::file::FileBuilder;
@@ -26,8 +25,8 @@ use crate::command::Command;
 use crate::command::ExecArgs;
 use crate::command::ReplArgs;
 use crate::command::Subcommand;
-use crate::config::Config;
 use crate::config::load_config;
+use crate::config::try_load_config;
 use crate::global::eprintln_and_error;
 
 mod client;
@@ -51,7 +50,7 @@ fn main() {
         None => {
             log::info!("starting interactive repl");
             let ReplArgs { config_file } = cmd.repl_args;
-            let config = match load_config(config_file) {
+            let config = match try_load_config(config_file) {
                 Ok(Some(config)) if config.has_default_connection() => config,
                 Ok(_) => config::create_first_connection().unwrap_or_else(|err| {
                     eprintln!("error: failed to create config: {err}");
@@ -71,7 +70,7 @@ fn main() {
             statement,
             output_file,
         }) => {
-            let config = load_required_config(config_file);
+            let config = load_config(config_file);
             match (file, statement) {
                 (Some(file), None) => match std::fs::read_to_string(&file) {
                     Ok(content) => {
@@ -107,36 +106,11 @@ fn main() {
             format,
         }) => {
             log::info!("starting load command for {}", file.display());
-            let config = load_required_config(config_file);
+            let config = load_config(config_file);
             load::load(&config, quiet, file, transform, format);
         }
         Some(Subcommand::Connection { cmd }) => cmd.run(),
     }
-}
-
-fn load_required_config(config_file: Option<PathBuf>) -> Config {
-    let config = match load_config(config_file) {
-        Ok(Some(config)) => config,
-        Ok(None) => {
-            eprintln!(
-                "error: no ScopeQL connection configured; run `scopeql connection add` to create one"
-            );
-            std::process::exit(1);
-        }
-        Err(err) => {
-            eprintln!("error: failed to load config: {err}");
-            std::process::exit(1);
-        }
-    };
-
-    if !config.has_default_connection() {
-        eprintln!(
-            "error: no default connection configured; run `scopeql connection add` to create one"
-        );
-        std::process::exit(1);
-    }
-
-    config
 }
 
 fn setup_logger() {

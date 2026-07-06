@@ -132,7 +132,7 @@ pub enum ConnectionCommand {
     Default {
         /// The name of the connection to use.
         #[clap(value_name = "CONNECTION_NAME")]
-        name: String,
+        name: Option<String>,
     },
     /// Add a connection.
     #[clap(name = "add")]
@@ -150,7 +150,10 @@ impl ConnectionCommand {
     pub fn run(self) {
         match self {
             ConnectionCommand::List => config::list_connections(),
-            ConnectionCommand::Default { name } => config::set_default_connection(name.as_str()),
+            ConnectionCommand::Default { name } => match name {
+                Some(name) => config::set_default_connection(name.as_str()),
+                None => config::show_default_connection(),
+            },
             ConnectionCommand::Add => config::add_connection(),
             ConnectionCommand::Remove { name } => config::remove_connection(name.as_str()),
         }
