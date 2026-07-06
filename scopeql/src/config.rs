@@ -308,26 +308,12 @@ fn do_list_connections() -> Result<(), Error> {
         return Ok(());
     }
 
-    let mut table = comfy_table::Table::new();
-    table.load_preset(comfy_table::presets::NOTHING);
-    table.set_header(["DEFAULT", "NAME", "ENDPOINT", "AUTH", "HEADERS"]);
-    for (name, conn) in &config.connections {
-        let default = if config.default_connection.as_ref() == Some(name) {
-            "*"
-        } else {
-            ""
-        };
-
-        table.add_row(vec![
-            default.to_string(),
-            name.to_string(),
-            conn.endpoint().to_string(),
-            conn.auth().kind().to_string(),
-            conn.headers().join("\n"),
-        ]);
-    }
-
-    println!("{table}");
+    let connections = config
+        .connections
+        .iter()
+        .map(|(name, conn)| (name.as_str(), conn))
+        .collect::<Vec<_>>();
+    print_connection_table(config.default_connection.as_deref(), &connections);
     Ok(())
 }
 
@@ -362,17 +348,35 @@ fn do_show_default_connection() -> Result<(), Error> {
         return Ok(());
     };
 
+    print_connection_table(Some(name), &[(name, conn)]);
+    Ok(())
+}
+
+fn print_connection_table(
+    default_connection: Option<&str>,
+    connections: &[(&str, &ConnectionSpec)],
+) {
     let mut table = comfy_table::Table::new();
     table.load_preset(comfy_table::presets::NOTHING);
-    table.set_header(["NAME", "ENDPOINT", "AUTH", "HEADERS"]);
-    table.add_row(vec![
-        name.to_string(),
-        conn.endpoint().to_string(),
-        conn.auth().kind().to_string(),
-        conn.headers().join("\n"),
-    ]);
+    table.set_header(["DEFAULT", "NAME", "ENDPOINT", "AUTH", "HEADERS"]);
+
+    for (name, conn) in connections {
+        let default = if Some(*name) == default_connection {
+            "*"
+        } else {
+            ""
+        };
+
+        table.add_row(vec![
+            default.to_string(),
+            name.to_string(),
+            conn.endpoint().to_string(),
+            conn.auth().kind().to_string(),
+            conn.headers().join("\n"),
+        ]);
+    }
+
     println!("{table}");
-    Ok(())
 }
 
 fn do_set_default_connection(name: &str) -> Result<(), Error> {
