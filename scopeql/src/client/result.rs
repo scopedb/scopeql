@@ -123,7 +123,7 @@ impl ResultSet {
         Ok(values)
     }
 
-    pub(crate) fn from_statement_result_set(result_set: StatementResultSet) -> ResultSet {
+    pub fn from_statement_result_set(result_set: StatementResultSet) -> ResultSet {
         ResultSet {
             num_rows: result_set.metadata.num_rows,
             schema: Schema {

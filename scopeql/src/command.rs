@@ -114,53 +114,48 @@ pub enum Subcommand {
         #[clap(long, value_enum)]
         format: Option<DataFormat>,
     },
-    /// Manage the config file.
-    #[clap(name = "config")]
-    Config {
+    /// Manage connections.
+    #[clap(name = "connection")]
+    Connection {
         #[command(subcommand)]
-        cmd: ConfigCommand,
+        cmd: ConnectionCommand,
     },
 }
 
 #[derive(Debug, Clone, clap::Subcommand)]
-pub enum ConfigCommand {
-    /// Describe one or many connections.
-    #[clap(name = "get-connections")]
-    GetConnections {
-        /// The name of the connection to display.
+pub enum ConnectionCommand {
+    /// List configured connections.
+    #[clap(name = "list")]
+    List,
+    /// Set the default connection.
+    #[clap(name = "default")]
+    Default {
+        /// The name of the connection to use.
         #[clap(value_name = "CONNECTION_NAME")]
         name: Option<String>,
     },
-    /// Set the default connection in the config file.
-    #[clap(name = "use-connection")]
-    UseConnection {
-        /// The name of the connection to use.
-        #[clap(value_name = "CONNECTION_NAME")]
-        name: String,
-    },
-    /// Set a connection in the config file.
-    #[clap(name = "set-connection")]
-    SetConnection {
-        /// The name of the new connection.
-        #[clap(value_name = "CONNECTION_NAME")]
-        name: String,
-    },
-    /// Delete the specified connection from the config file.
-    #[clap(name = "delete-connection")]
-    DeleteConnection {
+    /// Add a connection.
+    #[clap(name = "add")]
+    Add,
+    /// Delete the specified connection.
+    #[clap(name = "remove")]
+    Remove {
         /// The name of the connection to delete.
         #[clap(value_name = "CONNECTION_NAME")]
         name: String,
     },
 }
 
-impl ConfigCommand {
+impl ConnectionCommand {
     pub fn run(self) {
         match self {
-            ConfigCommand::GetConnections { name } => config::get_connections(name.as_deref()),
-            ConfigCommand::UseConnection { name } => config::use_connection(name.as_str()),
-            ConfigCommand::SetConnection { name } => config::set_connection(name),
-            ConfigCommand::DeleteConnection { name } => config::delete_connection(name.as_str()),
+            ConnectionCommand::List => config::list_connections(),
+            ConnectionCommand::Default { name } => match name {
+                Some(name) => config::set_default_connection(name.as_str()),
+                None => config::show_default_connection(),
+            },
+            ConnectionCommand::Add => config::add_connection(),
+            ConnectionCommand::Remove { name } => config::remove_connection(name.as_str()),
         }
     }
 }

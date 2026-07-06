@@ -38,8 +38,8 @@ use crate::header::parse_headers;
 use crate::output::format_result_set;
 
 mod connection;
-pub(crate) mod protocol;
-pub(crate) mod result;
+pub mod protocol;
+pub mod result;
 
 #[derive(Debug)]
 pub struct ScopeQLClient {

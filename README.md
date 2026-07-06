@@ -32,6 +32,8 @@ docker run -it --rm scopedb/scopeql
 
 `scopeql` reads its default connection settings from `config.toml`. Each connection can optionally define an API key, which is sent as an `Authorization: Bearer <key>` header on requests.
 
+Use `scopeql connection list` to view configured connections, `scopeql connection default <connection>` to choose the default connection, `scopeql connection add` to create a connection interactively, and `scopeql connection remove <connection>` to delete one. The add prompt always runs the full first-launch setup flow and defaults to a `default` connection in API Key mode. Starting `scopeql` without a config file opens the same connection setup prompt before entering the REPL.
+
 ```toml
 default_connection = "default"
 
@@ -42,7 +44,7 @@ api_key = "your-api-key"
 headers = ["X-Tenant: acme"]
 ```
 
-You can also override connection settings with environment variables such as `SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_ENDPOINT`, `SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_API_KEY`, and `SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_HEADERS`. The `SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_HEADERS` value should use newline-separated `KEY: VALUE` entries, matching the `headers = ["KEY: VALUE"]` TOML format.
+You can also supply connection settings with environment variables such as `SCOPEQL_CONFIG_DEFAULT_CONNECTION`, `SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_ENDPOINT`, `SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_AUTH`, `SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_API_KEY`, and `SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_HEADERS`. Environment-only configuration must include enough fields to define the default connection. The `SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_HEADERS` value should use newline-separated `KEY: VALUE` entries, matching the `headers = ["KEY: VALUE"]` TOML format.
 
 ## Logs
 

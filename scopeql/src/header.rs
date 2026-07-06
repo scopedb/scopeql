@@ -52,14 +52,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_header_valid() {
-        let (key, value) = parse_header("X-Test: value").unwrap();
-        assert_eq!(key, "x-test");
-        assert_eq!(value, "value");
-    }
-
-    #[test]
-    fn test_parse_header_with_spaces() {
+    fn test_parse_header_trims_parts() {
         let (key, value) = parse_header("  X-Test  :  value  ").unwrap();
         assert_eq!(key, "x-test");
         assert_eq!(value, "value");

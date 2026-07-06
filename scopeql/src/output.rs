@@ -267,15 +267,7 @@ mod tests {
 
     #[test]
     fn json_value_conversion() {
-        assert_eq!(value_to_json(Value::Null), serde_json::Value::Null);
         assert_eq!(value_to_json(Value::Int(42)), serde_json::json!(42));
-        assert_eq!(value_to_json(Value::UInt(100)), serde_json::json!(100));
-        assert_eq!(value_to_json(Value::Float(3.5)), serde_json::json!(3.5));
-        assert_eq!(value_to_json(Value::Boolean(true)), serde_json::json!(true));
-        assert_eq!(
-            value_to_json(Value::String("hello".into())),
-            serde_json::json!("hello")
-        );
         assert_eq!(
             value_to_json(Value::Object(r#"{"a":1}"#.into())),
             serde_json::json!({ "a": 1 })

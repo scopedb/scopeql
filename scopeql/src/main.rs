@@ -26,6 +26,7 @@ use crate::command::ExecArgs;
 use crate::command::ReplArgs;
 use crate::command::Subcommand;
 use crate::config::load_config;
+use crate::config::try_load_config;
 use crate::global::eprintln_and_error;
 
 mod client;
@@ -49,7 +50,17 @@ fn main() {
         None => {
             log::info!("starting interactive repl");
             let ReplArgs { config_file } = cmd.repl_args;
-            let config = load_config(config_file);
+            let config = match try_load_config(config_file) {
+                Ok(Some(config)) if config.has_default_connection() => config,
+                Ok(_) => config::create_first_connection().unwrap_or_else(|err| {
+                    eprintln!("error: failed to create config: {err}");
+                    std::process::exit(1);
+                }),
+                Err(err) => {
+                    eprintln!("error: failed to load config: {err}");
+                    std::process::exit(1);
+                }
+            };
             repl::entrypoint(&config);
         }
         Some(Subcommand::Run {
@@ -98,7 +109,7 @@ fn main() {
             let config = load_config(config_file);
             load::load(&config, quiet, file, transform, format);
         }
-        Some(Subcommand::Config { cmd }) => cmd.run(),
+        Some(Subcommand::Connection { cmd }) => cmd.run(),
     }
 }
 
