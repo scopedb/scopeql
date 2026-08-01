@@ -651,8 +651,6 @@ endpoint = "http://127.0.0.1:6543"
 auth = "direct"
 "#;
 
-    use std::assert_matches;
-
     use super::*;
 
     #[test]
@@ -678,10 +676,10 @@ api_key = "test-api-key"
         .unwrap();
 
         let conn = config.get_default_connection().unwrap();
-        assert_matches!(
-            conn.auth().clone(),
+        assert!(matches!(
+            conn.auth(),
             ConnectionAuthSpec::ApiKey { api_key } if api_key == "test-api-key"
-        );
+        ));
     }
 
     #[test]
@@ -727,10 +725,10 @@ headers = ["X-Tenant: acme"]
 
         let config = Config::deserialize(doc.into_deserializer()).unwrap();
         let conn = config.get_default_connection().unwrap();
-        assert_matches!(
-            conn.auth().clone(),
+        assert!(matches!(
+            conn.auth(),
             ConnectionAuthSpec::ApiKey { api_key } if api_key == "test-api-key"
-        );
+        ));
     }
 
     #[test]

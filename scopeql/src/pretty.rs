@@ -127,7 +127,9 @@ pub fn pretty_print(input: &str) -> String {
         n += 1;
     }
 
-    String::from_utf8_lossy_owned(output)
+    // The input is valid UTF-8, and the formatter only copies its bytes or
+    // inserts ASCII whitespace and punctuation, so the output stays valid.
+    String::from_utf8(output).expect("pretty-printed JSON must remain valid UTF-8")
 }
 
 #[cfg(test)]
@@ -143,6 +145,10 @@ mod tests {
         assert_eq!(
             pretty_print("{\"empty\":{},\n\n\n\n\n\"one\":[1]}"),
             "{\n  \"empty\": {},\n  \"one\": [\n    1\n  ]\n}"
+        );
+        assert_eq!(
+            pretty_print("{\"message\":\"ScopeDB 数据\",\"tags\":[\"北京\",\"东京\"]}"),
+            "{\n  \"message\": \"ScopeDB 数据\",\n  \"tags\": [\n    \"北京\",\n    \"东京\"\n  ]\n}"
         );
     }
 }
