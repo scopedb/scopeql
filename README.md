@@ -22,29 +22,63 @@ cargo install scopeql
 
 Or you can download pre-built binaries from the [releases page](https://github.com/scopedb/scopeql/releases).
 
-Or you can use the Docker image:
+Or you can run the CLI client with Docker:
 
 ```bash
 docker run -it --rm scopedb/scopeql
 ```
 
+## Connect to ScopeDB
+
+ScopeDB is a managed service. Open **Connect** in ScopeDB Console and copy the
+**ScopeDB API** address for your workspace. Then create an API key in **API
+Keys**, or use a key secret you previously stored.
+
+Create a connection interactively:
+
+```bash
+scopeql connection add
+```
+
+Choose **API Key**, then enter the ScopeDB API address and API key you obtained
+from Console. The first connection is named `default` unless you choose another
+name. Starting `scopeql` without a configured connection opens the same setup
+prompt before entering the REPL.
+
+Use `scopeql connection list` to view configured connections,
+`scopeql connection default <connection>` to choose the default connection, and
+`scopeql connection remove <connection>` to delete one.
+
+These `connection` commands describe builds from the current `main` branch. The
+published v0.6.0 release instead uses:
+
+```bash
+scopeql config set-connection <connection>
+scopeql config get-connections
+scopeql config use-connection <connection>
+scopeql config delete-connection <connection>
+```
+
 ## Configuration
 
-`scopeql` reads its default connection settings from `config.toml`. Each connection can optionally define an API key, which is sent as an `Authorization: Bearer <key>` header on requests.
-
-Use `scopeql connection list` to view configured connections, `scopeql connection default <connection>` to choose the default connection, `scopeql connection add` to create a connection interactively, and `scopeql connection remove <connection>` to delete one. The add prompt always runs the full first-launch setup flow and defaults to a `default` connection in API Key mode. Starting `scopeql` without a config file opens the same connection setup prompt before entering the REPL.
+`scopeql` stores connection settings in `config.toml`. An API Key connection sends
+the configured key as an `Authorization: Bearer <key>` header:
 
 ```toml
 default_connection = "default"
 
 [connections.default]
-endpoint = "https://<cell>.<provider>.scopedb.cloud"
+endpoint = "https://<workspace-endpoint>"
 auth = "api_key"
-api_key = "your-api-key"
-headers = ["X-Tenant: acme"]
+api_key = "<api-key>"
 ```
 
-You can also supply connection settings with environment variables such as `SCOPEQL_CONFIG_DEFAULT_CONNECTION`, `SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_ENDPOINT`, `SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_AUTH`, `SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_API_KEY`, and `SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_HEADERS`. Environment-only configuration must include enough fields to define the default connection. The `SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_HEADERS` value should use newline-separated `KEY: VALUE` entries, matching the `headers = ["KEY: VALUE"]` TOML format.
+You can also supply connection settings with environment variables such as
+`SCOPEQL_CONFIG_DEFAULT_CONNECTION`,
+`SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_ENDPOINT`,
+`SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_AUTH`, and
+`SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_API_KEY`. Environment-only
+configuration must include enough fields to define the default connection.
 
 ## Logs
 
