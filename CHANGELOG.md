@@ -17,6 +17,7 @@ All significant changes to this software be documented in this file.
 
 ### Bug Fixes
 
+* Allow the ScopeQL CLI to compile on stable Rust.
 * Reject duplicate connection names in `scopeql connection add`.
 * Show the REPL command list after an unknown REPL command.
 

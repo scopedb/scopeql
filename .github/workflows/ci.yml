@@ -42,6 +42,8 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: typos-cli,taplo-cli,hawkeye
+      - name: Check stable Rust compatibility
+        run: cargo +stable check --workspace --all-targets
       - run: cargo x lint
 
   test:
