@@ -643,6 +643,10 @@ pub fn create_first_connection() -> Result<Config, Error> {
 
 #[cfg(test)]
 mod tests {
+    use std::assert_matches;
+
+    use super::*;
+
     const TEST_CONFIG: &str = r#"
 default_connection = "default"
 
@@ -650,8 +654,6 @@ default_connection = "default"
 endpoint = "http://127.0.0.1:6543"
 auth = "direct"
 "#;
-
-    use super::*;
 
     #[test]
     fn config_deserializes_without_default_connection() {
@@ -676,10 +678,10 @@ api_key = "test-api-key"
         .unwrap();
 
         let conn = config.get_default_connection().unwrap();
-        assert!(matches!(
+        assert_matches!(
             conn.auth(),
             ConnectionAuthSpec::ApiKey { api_key } if api_key == "test-api-key"
-        ));
+        );
     }
 
     #[test]
@@ -725,10 +727,10 @@ headers = ["X-Tenant: acme"]
 
         let config = Config::deserialize(doc.into_deserializer()).unwrap();
         let conn = config.get_default_connection().unwrap();
-        assert!(matches!(
+        assert_matches!(
             conn.auth(),
             ConnectionAuthSpec::ApiKey { api_key } if api_key == "test-api-key"
-        ));
+        );
     }
 
     #[test]
