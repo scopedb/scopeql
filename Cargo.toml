@@ -22,6 +22,7 @@ homepage = "https://github.com/scopedb/scopeql"
 license = "Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/scopedb/scopeql"
+rust-version = "1.97.0"
 
 [workspace.dependencies]
 scopeql-parser = { path = "scopeql-parser", version = "0.3.1" }

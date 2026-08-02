@@ -17,6 +17,11 @@ use std::process::Command as StdCommand;
 use clap::Parser;
 use clap::Subcommand;
 
+fn main() {
+    let cmd = Command::parse();
+    cmd.run()
+}
+
 #[derive(Parser)]
 struct Command {
     #[clap(subcommand)]
@@ -27,6 +32,7 @@ impl Command {
     fn run(self) {
         match self.sub {
             SubCommand::Build(cmd) => cmd.run(),
+            SubCommand::Check(cmd) => cmd.run(),
             SubCommand::Lint(cmd) => cmd.run(),
             SubCommand::Test(cmd) => cmd.run(),
         }
@@ -37,6 +43,8 @@ impl Command {
 enum SubCommand {
     #[clap(about = "Compile workspace packages.")]
     Build(CommandBuild),
+    #[clap(about = "Check Rust compatibility.")]
+    Check(CommandCheck),
     #[clap(about = "Run format and clippy checks.")]
     Lint(CommandLint),
     #[clap(about = "Run unit tests.")]
@@ -52,6 +60,16 @@ struct CommandBuild {
 impl CommandBuild {
     fn run(self) {
         run_command(make_build_cmd(self.locked));
+    }
+}
+
+#[derive(Parser)]
+#[clap(name = "check")]
+struct CommandCheck {}
+
+impl CommandCheck {
+    fn run(self) {
+        run_command(make_check_cmd());
     }
 }
 
@@ -142,7 +160,7 @@ fn make_test_cmd(no_capture: bool, features: &[&str]) -> StdCommand {
 
 fn make_format_cmd(fix: bool) -> StdCommand {
     let mut cmd = find_command("cargo");
-    cmd.args(["fmt", "--all"]);
+    cmd.args(["+nightly", "fmt", "--all"]);
     if !fix {
         cmd.arg("--check");
     }
@@ -152,6 +170,7 @@ fn make_format_cmd(fix: bool) -> StdCommand {
 fn make_clippy_cmd(fix: bool) -> StdCommand {
     let mut cmd = find_command("cargo");
     cmd.args([
+        "+nightly",
         "clippy",
         "--tests",
         "--all-features",
@@ -163,6 +182,13 @@ fn make_clippy_cmd(fix: bool) -> StdCommand {
     } else {
         cmd.args(["--", "-D", "warnings"]);
     }
+    cmd
+}
+
+fn make_check_cmd() -> StdCommand {
+    let mut cmd = find_command("cargo");
+    cmd.env("RUSTFLAGS", "-Dwarnings");
+    cmd.args(["check", "--workspace", "--all-targets"]);
     cmd
 }
 
@@ -191,9 +217,4 @@ fn make_taplo_cmd(fix: bool) -> StdCommand {
         cmd.args(["format", "--check"]);
     }
     cmd
-}
-
-fn main() {
-    let cmd = Command::parse();
-    cmd.run()
 }
