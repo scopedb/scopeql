@@ -20,7 +20,6 @@ use clap::Parser;
 use exn::Result;
 use indicatif::ProgressBar;
 use indicatif::ProgressStyle;
-use mea::latch::Latch;
 use nu_ansi_term::Color;
 use nu_ansi_term::Style;
 use reedline::DefaultHinter;
@@ -249,9 +248,20 @@ pub fn entrypoint(config: &Config) {
     }
 
     loop {
-        let input = line_editor
-            .read_line(&repl.prompt)
-            .expect("failed to read next line");
+        let input = match line_editor.read_line(&repl.prompt) {
+            Ok(input) => input,
+            Err(err) => {
+                if matches!(err.kind(), std::io::ErrorKind::Other) {
+                    let err = err.to_string();
+                    if err.contains("cursor position could not be read within a normal duration") {
+                        continue;
+                    }
+                }
+                eprintln!("error: failed to read input: {err}");
+                return;
+            }
+        };
+
         let input = match input {
             Signal::Success(input)
                 if input == CTRL_C_PROMPT_COMMAND || input == CTRL_D_PROMPT_COMMAND =>
@@ -388,18 +398,7 @@ pub fn entrypoint(config: &Config) {
             let pb_style = "{spinner:.green} [{elapsed_precise}] {msg:.green.bold.bright} [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec})";
             let pb = ProgressBar::no_length()
                 .with_style(ProgressStyle::with_template(pb_style).unwrap());
-            let stop_pb = Arc::new(Latch::new(1));
-
-            global::rt().spawn({
-                let pb = pb.clone();
-                let stop_pb = stop_pb.clone();
-                async move {
-                    while stop_pb.try_wait().is_err() {
-                        tokio::time::sleep(Duration::from_millis(42)).await;
-                        pb.tick();
-                    }
-                }
-            });
+            pb.enable_steady_tick(Duration::from_millis(42));
 
             let client = &repl.client;
             let output_format = repl.output_format;
@@ -432,7 +431,7 @@ pub fn entrypoint(config: &Config) {
                 }
             });
 
-            stop_pb.count_down();
+            pb.disable_steady_tick();
             pb.finish_and_clear();
 
             match output {
