@@ -248,8 +248,18 @@ pub fn entrypoint(config: &Config) {
     }
 
     loop {
-        let Ok(input) = line_editor.read_line(&repl.prompt) else {
-            continue;
+        let input = match line_editor.read_line(&repl.prompt) {
+            Ok(input) => input,
+            Err(err) => {
+                if matches!(err.kind(), std::io::ErrorKind::Other) {
+                    let err = err.to_string();
+                    if err.contains("cursor position could not be read within a normal duration") {
+                        continue;
+                    }
+                }
+                eprintln!("error: failed to read input: {err}");
+                return;
+            }
         };
 
         let input = match input {
