@@ -20,16 +20,23 @@ use crate::config;
 use crate::load::DataFormat;
 use crate::version::version;
 
-/// ScopeDB Command Line Interface
+/// ScopeDB command-line interface.
 ///
-/// If no command is specified, an interactive REPL will be started.
+/// This CLI executes ScopeQL statements. For language syntax and examples, see:
+///
+///   Docs: https://docs.scopedb.io/
+///   Quickstart: https://docs.scopedb.io/guides/quickstart
+///   Reference: https://docs.scopedb.io/reference/
+///
+/// If no command is specified, an interactive REPL starts.
 #[derive(Debug, clap::Parser)]
 #[command(
     name = "scopeql",
     version,
     long_version = version(),
     styles=styled(),
-    args_conflicts_with_subcommands = true
+    args_conflicts_with_subcommands = true,
+    verbatim_doc_comment
 )]
 pub struct Command {
     #[clap(flatten)]

@@ -12,6 +12,13 @@
 
 `scopeql` provides a command line interface and interactive shell for ScopeDB.
 
+This repository documents the CLI, not the ScopeQL language. For ScopeQL syntax
+and examples, use the canonical language documentation:
+
+- [ScopeDB documentation](https://docs.scopedb.io/)
+- [ScopeQL quickstart](https://docs.scopedb.io/guides/quickstart)
+- [ScopeQL reference](https://docs.scopedb.io/reference/)
+
 ## Installation
 
 You can install `scopeql` with Cargo:
