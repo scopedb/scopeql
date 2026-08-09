@@ -12,7 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::io::IsTerminal;
+use std::io::Read;
 use std::num::NonZeroUsize;
+use std::path::Path;
+use std::path::PathBuf;
 
 use clap::Parser;
 use logforth::append::file::FileBuilder;
@@ -21,10 +25,9 @@ use logforth::layout::JsonLayout;
 
 use crate::command::Command;
 use crate::command::ExecArgs;
-use crate::command::ReplArgs;
+use crate::command::RunArgs;
 use crate::command::Subcommand;
 use crate::config::load_config;
-use crate::config::try_load_config;
 use crate::global::eprintln_and_error;
 
 mod client;
@@ -36,7 +39,6 @@ mod header;
 mod load;
 mod output;
 mod pretty;
-mod repl;
 mod tokenizer;
 mod version;
 
@@ -45,69 +47,93 @@ fn main() {
     setup_logger();
 
     match cmd.subcommand {
-        None => {
-            log::info!("starting interactive repl");
-            let ReplArgs { config_file } = cmd.repl_args;
-            let config = match try_load_config(config_file) {
-                Ok(Some(config)) if config.has_default_connection() => config,
-                Ok(_) => config::create_first_connection().unwrap_or_else(|err| {
-                    eprintln!("error: failed to create config: {err}");
-                    std::process::exit(1);
-                }),
-                Err(err) => {
-                    eprintln!("error: failed to load config: {err}");
-                    std::process::exit(1);
-                }
-            };
-            repl::entrypoint(&config);
-        }
-        Some(Subcommand::Run {
-            args: ExecArgs { config_file, quiet },
-            format,
-            file,
-            statement,
-            output_file,
-        }) => {
-            let config = load_config(config_file);
-            match (file, statement) {
-                (Some(file), None) => match std::fs::read_to_string(&file) {
-                    Ok(content) => {
-                        log::info!("running scopeql statements from file {}", file.display());
-                        execute::execute(&config, quiet, format, content, output_file);
-                    }
-                    Err(err) => {
-                        let file = file.display();
-                        eprintln_and_error(format_args!(
-                            "failed to read script file {file}: {err}"
-                        ));
-                        std::process::exit(1);
-                    }
-                },
-                (None, Some(statement)) => {
-                    log::info!("running scopeql statements from inline input");
-                    execute::execute(&config, quiet, format, statement, output_file);
-                }
-                (None, None) => {
-                    eprintln!("error: missing input; provide statement text or use -f/--file");
-                    std::process::exit(1);
-                }
-                (Some(_), Some(_)) => {
-                    eprintln!("error: provide either a statement or -f/--file, not both");
-                    std::process::exit(1);
-                }
-            }
-        }
-        Some(Subcommand::Load {
+        Subcommand::Run(args) => run(args),
+        Subcommand::Load {
             args: ExecArgs { config_file, quiet },
             file,
             transform,
             format,
-        }) => {
+        } => {
             log::info!("starting load command for {}", file.display());
             let config = load_config(config_file);
             load::load(&config, quiet, file, transform, format);
         }
-        Some(Subcommand::Connection { cmd }) => cmd.run(),
+        Subcommand::Connection { cmd } => cmd.run(),
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum ScopeQLInput {
+    Stdin,
+    File(PathBuf),
+    Command(String),
+}
+
+fn run(args: RunArgs) {
+    let RunArgs {
+        args: ExecArgs { config_file, quiet },
+        file,
+        command,
+        format,
+        output_file,
+    } = args;
+
+    let stdin = std::io::stdin();
+    let input = resolve_scopeql_input(file, command, stdin.is_terminal()).unwrap_or_else(|err| {
+        eprintln_and_error(format_args!("{err}"));
+        std::process::exit(2);
+    });
+    let source = read_scopeql_input(input, stdin.lock()).unwrap_or_else(|err| {
+        eprintln_and_error(format_args!("{err}"));
+        std::process::exit(1);
+    });
+
+    let config = load_config(config_file);
+    execute::execute(&config, quiet, format, source, output_file);
+}
+
+fn resolve_scopeql_input(
+    file: Option<PathBuf>,
+    command: Option<String>,
+    stdin_is_terminal: bool,
+) -> Result<ScopeQLInput, Error> {
+    match (file, command) {
+        (Some(_), Some(_)) => Err(Error::new(
+            "provide either a script file or --command, not both",
+        )),
+        (None, Some(command)) => Ok(ScopeQLInput::Command(command)),
+        (Some(file), None) if file == Path::new("-") => Ok(ScopeQLInput::Stdin),
+        (Some(file), None) => Ok(ScopeQLInput::File(file)),
+        (None, None) if !stdin_is_terminal => Ok(ScopeQLInput::Stdin),
+        (None, None) => Err(Error::new(
+            "missing input; provide a script file, use --command, or pipe ScopeQL through stdin",
+        )),
+    }
+}
+
+fn read_scopeql_input(input: ScopeQLInput, mut stdin: impl Read) -> Result<String, Error> {
+    match input {
+        ScopeQLInput::Command(command) => {
+            log::info!("running ScopeQL statements from an inline command");
+            Ok(command)
+        }
+        ScopeQLInput::File(file) => {
+            log::info!("running ScopeQL statements from file {}", file.display());
+            std::fs::read_to_string(&file).map_err(|err| {
+                Error::new(format!(
+                    "failed to read script file {}: {err}",
+                    file.display()
+                ))
+            })
+        }
+        ScopeQLInput::Stdin => {
+            log::info!("running ScopeQL statements from stdin");
+            let mut source = String::new();
+            stdin
+                .read_to_string(&mut source)
+                .map_err(|err| Error::new(format!("failed to read ScopeQL from stdin: {err}")))?;
+            Ok(source)
+        }
     }
 }
 
@@ -166,5 +192,49 @@ impl std::fmt::Display for Error {
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         self.source.as_ref().map(|v| v.as_ref())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::Cursor;
+
+    use super::*;
+
+    #[test]
+    fn omitted_input_reads_redirected_stdin() {
+        assert_eq!(
+            resolve_scopeql_input(None, None, false).unwrap(),
+            ScopeQLInput::Stdin
+        );
+    }
+
+    #[test]
+    fn omitted_input_rejects_an_interactive_terminal() {
+        let error = resolve_scopeql_input(None, None, true).unwrap_err();
+
+        assert_eq!(
+            error.to_string(),
+            "missing input; provide a script file, use --command, or pipe ScopeQL through stdin"
+        );
+    }
+
+    #[test]
+    fn dash_explicitly_selects_stdin() {
+        assert_eq!(
+            resolve_scopeql_input(Some(PathBuf::from("-")), None, true).unwrap(),
+            ScopeQLInput::Stdin
+        );
+    }
+
+    #[test]
+    fn stdin_is_read_as_one_script() {
+        let source = read_scopeql_input(
+            ScopeQLInput::Stdin,
+            Cursor::new("SHOW DATABASES;\nSHOW SCHEMAS;"),
+        )
+        .unwrap();
+
+        assert_eq!(source, "SHOW DATABASES;\nSHOW SCHEMAS;");
     }
 }

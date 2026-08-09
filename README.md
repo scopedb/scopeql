@@ -10,7 +10,9 @@
 
 ## Overview
 
-`scopeql` provides a command line interface and interactive shell for ScopeDB.
+`scopeql` is a one-shot command-line client for ScopeDB. It reads ScopeQL from a
+script, stdin, or an explicit command and submits each top-level statement
+independently.
 
 This repository documents the CLI, not the ScopeQL language. For ScopeQL syntax
 and examples, use the canonical language documentation:
@@ -32,7 +34,7 @@ Or you can download pre-built binaries from the [releases page](https://github.c
 Or you can run the CLI client with Docker:
 
 ```bash
-docker run -it --rm scopedb/scopeql
+docker run --rm scopedb/scopeql --help
 ```
 
 ## Connect to ScopeDB
@@ -49,8 +51,7 @@ scopeql connection add
 
 Choose **API Key**, then enter the ScopeDB API address and API key you obtained
 from Console. The first connection is named `default` unless you choose another
-name. Starting `scopeql` without a configured connection opens the same setup
-prompt before entering the REPL.
+name.
 
 Use `scopeql connection list` to view configured connections,
 `scopeql connection default <connection>` to choose the default connection, and
@@ -65,6 +66,39 @@ scopeql config get-connections
 scopeql config use-connection <connection>
 scopeql config delete-connection <connection>
 ```
+
+## Run ScopeQL
+
+Pass a script directly to `scopeql run`. A script may contain multiple top-level
+statements separated by semicolons:
+
+```bash
+scopeql run queries.scopeql
+```
+
+Omit the file, or use `-`, to read the entire script from stdin. This is the
+preferred way to generate ScopeQL in a shell because the shell does not parse
+the statement text:
+
+```bash
+scopeql run < queries.scopeql
+
+scopeql run - <<'SCOPEQL'
+SHOW DATABASES;
+SHOW SCHEMAS;
+SCOPEQL
+```
+
+For a short statement that does not need shell-sensitive syntax, use
+`-c/--command`:
+
+```bash
+scopeql run --command 'SHOW DATABASES;'
+```
+
+Use `--format table|json|csv|jsonl` to select the result format,
+`-o/--output <FILE>` to write results to a file, and `-q/--quiet` to suppress
+normal output. Running `scopeql` without a subcommand displays command help.
 
 ## Configuration
 

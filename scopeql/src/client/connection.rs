@@ -24,7 +24,6 @@ use crate::Error;
 use crate::client::protocol::IngestRequest;
 use crate::client::protocol::IngestResult;
 use crate::client::protocol::Response;
-use crate::client::protocol::StatementCancelResult;
 use crate::client::protocol::StatementRequest;
 use crate::client::protocol::StatementRequestParams;
 use crate::client::protocol::StatementStatus;
@@ -98,25 +97,6 @@ impl Client {
             .await
             .map_err(|err| {
                 Error::new(format!("failed to fetch statement {statement_id:?}")).set_source(err)
-            })?;
-        Response::from_http_response(response).await
-    }
-
-    #[fastrace::trace]
-    pub async fn cancel_statement(
-        &self,
-        statement_id: Uuid,
-    ) -> Result<Response<StatementCancelResult>, Error> {
-        let path = format!("v1/statements/{statement_id}/cancel");
-        let url = self.make_url(&path)?;
-        let response = self
-            .client
-            .post(url)
-            .headers(self.request_headers())
-            .send()
-            .await
-            .map_err(|err| {
-                Error::new(format!("failed to cancel statement {statement_id:?}")).set_source(err)
             })?;
         Response::from_http_response(response).await
     }

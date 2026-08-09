@@ -26,7 +26,6 @@ use crate::client::protocol::IngestRequest;
 use crate::client::protocol::IngestResult;
 use crate::client::protocol::Response;
 use crate::client::protocol::ResultFormat;
-use crate::client::protocol::StatementCancelResult;
 use crate::client::protocol::StatementEstimatedProgress;
 use crate::client::protocol::StatementRequest;
 use crate::client::protocol::StatementRequestParams;
@@ -173,18 +172,6 @@ impl ScopeQLClient {
                 Response::Failed(err) => {
                     bail!(Error::new(format!("failed to fetch statement: {err}")));
                 }
-            }
-        }
-    }
-
-    pub async fn cancel_statement(
-        &self,
-        statement_id: Uuid,
-    ) -> Result<StatementCancelResult, Error> {
-        match self.client.cancel_statement(statement_id).await? {
-            Response::Success(response) => Ok(response),
-            Response::Failed(err) => {
-                bail!(Error::new(format!("failed to cancel statement: {err}")));
             }
         }
     }

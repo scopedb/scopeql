@@ -211,16 +211,6 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn default_connection_name(&self) -> &str {
-        self.default_connection
-            .as_deref()
-            .expect("no default connection in config")
-    }
-
-    pub fn connection_names(&self) -> impl Iterator<Item = &str> {
-        self.connections.keys().map(String::as_str)
-    }
-
     pub fn has_default_connection(&self) -> bool {
         self.get_default_connection().is_some()
     }
@@ -623,24 +613,6 @@ fn new_config_document() -> Result<(PathBuf, DocumentMut), Error> {
     Ok((path, DocumentMut::new()))
 }
 
-pub fn create_first_connection() -> Result<Config, Error> {
-    println!("No ScopeQL connection configured. Create a connection to continue.");
-    let (path, mut doc) = match load_document()? {
-        Some((path, doc)) => (path, doc),
-        None => {
-            let (path, doc) = new_config_document()?;
-            println!("Creating new config file at {}", path.display());
-            (path, doc)
-        }
-    };
-
-    let name = prompt_connection_name(FIRST_CONNECTION_NAME);
-    doc["default_connection"] = toml_edit::value(&name);
-
-    let conn = prompt_connection_spec();
-    add_connection_to_doc(name, path, doc, conn)
-}
-
 #[cfg(test)]
 mod tests {
     use std::assert_matches;
@@ -660,7 +632,7 @@ auth = "direct"
         let config: Config = toml::from_str("").unwrap();
 
         assert!(!config.has_default_connection());
-        assert_eq!(config.connection_names().count(), 0);
+        assert!(config.connections.is_empty());
     }
 
     #[test]

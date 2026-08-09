@@ -123,14 +123,6 @@ pub struct StatementRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StatementCancelResult {
-    pub statement_id: Uuid,
-    pub status: String,
-    pub message: String,
-    pub created_at: jiff::Timestamp,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "status")]
 pub enum StatementStatus {
     #[serde(rename = "pending")]
@@ -227,24 +219,6 @@ pub struct StatementProgress {
     pub skipped_compressed_bytes: i64,
     #[serde(default)]
     pub skipped_uncompressed_bytes: i64,
-}
-
-impl StatementProgress {
-    pub fn total_percentage(&self) -> f64 {
-        let scan_progress = if self.total_rows == 0 {
-            0.0
-        } else {
-            (self.scanned_rows + self.skipped_rows) as f64 / self.total_rows as f64 * 100.0
-        };
-
-        let stage_progress = if self.total_stages == 0 {
-            0.0
-        } else {
-            self.scanned_stages as f64 / self.total_stages as f64 * 100.0
-        };
-
-        scan_progress.max(stage_progress)
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
