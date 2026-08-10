@@ -123,6 +123,14 @@ pub struct StatementRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StatementCancelResult {
+    pub statement_id: Uuid,
+    pub status: String,
+    pub message: String,
+    pub created_at: jiff::Timestamp,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "status")]
 pub enum StatementStatus {
     #[serde(rename = "pending")]

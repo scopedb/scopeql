@@ -14,6 +14,7 @@ All significant changes to this software be documented in this file.
 
 * Allow deleting the last configured connection.
 * Let `scopeql run` read redirected stdin when neither statement text nor `-f/--file` is provided.
+* Best-effort cancel the active statement when `scopeql run` receives Ctrl+C.
 
 ### Bug Fixes
 

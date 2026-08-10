@@ -99,6 +99,12 @@ Use `--format table|json|csv|jsonl` to select the result format,
 `-o/--output <FILE>` to write results to a file, and `-q/--quiet` to suppress
 normal output. Running `scopeql` without a subcommand displays command help.
 
+Pressing Ctrl+C while a statement is active asks ScopeDB to cancel that
+statement, waits up to five seconds for the cancellation request, and exits with
+status 130 without running any remaining statements. Cancellation is best
+effort; if it fails or times out, the CLI reports the statement ID because the
+statement may still be running.
+
 ## Configuration
 
 `scopeql` stores connection settings in `config.toml`. An API Key connection sends
