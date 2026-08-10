@@ -15,7 +15,6 @@
 use std::io::IsTerminal;
 use std::io::Read;
 use std::num::NonZeroUsize;
-use std::path::Path;
 use std::path::PathBuf;
 
 use clap::Parser;
@@ -66,20 +65,20 @@ fn main() {
 enum ScopeQLInput {
     Stdin,
     File(PathBuf),
-    Command(String),
+    Statement(String),
 }
 
 fn run(args: RunArgs) {
     let RunArgs {
         args: ExecArgs { config_file, quiet },
         file,
-        command,
+        statement,
         format,
         output_file,
     } = args;
 
     let stdin = std::io::stdin();
-    let input = resolve_scopeql_input(file, command, stdin.is_terminal()).unwrap_or_else(|err| {
+    let input = resolve_scopeql_input(file, statement, stdin.is_terminal()).unwrap_or_else(|err| {
         eprintln_and_error(format_args!("{err}"));
         std::process::exit(2);
     });
@@ -94,28 +93,27 @@ fn run(args: RunArgs) {
 
 fn resolve_scopeql_input(
     file: Option<PathBuf>,
-    command: Option<String>,
+    statement: Option<String>,
     stdin_is_terminal: bool,
 ) -> Result<ScopeQLInput, Error> {
-    match (file, command) {
+    match (file, statement) {
         (Some(_), Some(_)) => Err(Error::new(
-            "provide either a script file or --command, not both",
+            "provide either statement text or -f/--file, not both",
         )),
-        (None, Some(command)) => Ok(ScopeQLInput::Command(command)),
-        (Some(file), None) if file == Path::new("-") => Ok(ScopeQLInput::Stdin),
+        (None, Some(statement)) => Ok(ScopeQLInput::Statement(statement)),
         (Some(file), None) => Ok(ScopeQLInput::File(file)),
         (None, None) if !stdin_is_terminal => Ok(ScopeQLInput::Stdin),
         (None, None) => Err(Error::new(
-            "missing input; provide a script file, use --command, or pipe ScopeQL through stdin",
+            "missing input; provide statement text, use -f/--file, or pipe ScopeQL through stdin",
         )),
     }
 }
 
 fn read_scopeql_input(input: ScopeQLInput, mut stdin: impl Read) -> Result<String, Error> {
     match input {
-        ScopeQLInput::Command(command) => {
-            log::info!("running ScopeQL statements from an inline command");
-            Ok(command)
+        ScopeQLInput::Statement(statement) => {
+            log::info!("running ScopeQL statements from inline input");
+            Ok(statement)
         }
         ScopeQLInput::File(file) => {
             log::info!("running ScopeQL statements from file {}", file.display());
@@ -215,15 +213,23 @@ mod tests {
 
         assert_eq!(
             error.to_string(),
-            "missing input; provide a script file, use --command, or pipe ScopeQL through stdin"
+            "missing input; provide statement text, use -f/--file, or pipe ScopeQL through stdin"
         );
     }
 
     #[test]
-    fn dash_explicitly_selects_stdin() {
+    fn dash_is_not_a_stdin_alias() {
         assert_eq!(
             resolve_scopeql_input(Some(PathBuf::from("-")), None, true).unwrap(),
-            ScopeQLInput::Stdin
+            ScopeQLInput::File(PathBuf::from("-"))
+        );
+    }
+
+    #[test]
+    fn positional_statement_is_used_as_inline_input() {
+        assert_eq!(
+            resolve_scopeql_input(None, Some("SHOW DATABASES;".to_owned()), true).unwrap(),
+            ScopeQLInput::Statement("SHOW DATABASES;".to_owned())
         );
     }
 

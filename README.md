@@ -11,7 +11,7 @@
 ## Overview
 
 `scopeql` is a one-shot command-line client for ScopeDB. It reads ScopeQL from a
-script, stdin, or an explicit command and submits each top-level statement
+command-line argument, script file, or stdin and submits each top-level statement
 independently.
 
 This repository documents the CLI, not the ScopeQL language. For ScopeQL syntax
@@ -69,31 +69,30 @@ scopeql config delete-connection <connection>
 
 ## Run ScopeQL
 
-Pass a script directly to `scopeql run`. A script may contain multiple top-level
-statements separated by semicolons:
+Pass statement text directly to `scopeql run`. Use semicolons to separate
+multiple top-level statements:
 
 ```bash
-scopeql run queries.scopeql
+scopeql run 'SHOW DATABASES;'
 ```
 
-Omit the file, or use `-`, to read the entire script from stdin. This is the
-preferred way to generate ScopeQL in a shell because the shell does not parse
-the statement text:
+Use `-f/--file` to execute a script file:
+
+```bash
+scopeql run -f queries.scopeql
+```
+
+When neither statement text nor `-f/--file` is provided, `scopeql run` reads the
+entire script from redirected stdin. This supports files, pipelines, and
+multiline heredocs:
 
 ```bash
 scopeql run < queries.scopeql
 
-scopeql run - <<'SCOPEQL'
+scopeql run <<'SCOPEQL'
 SHOW DATABASES;
 SHOW SCHEMAS;
 SCOPEQL
-```
-
-For a short statement that does not need shell-sensitive syntax, use
-`-c/--command`:
-
-```bash
-scopeql run --command 'SHOW DATABASES;'
 ```
 
 Use `--format table|json|csv|jsonl` to select the result format,

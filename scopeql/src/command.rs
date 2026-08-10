@@ -28,7 +28,8 @@ use crate::version::version;
 ///   Quickstart: https://docs.scopedb.io/guides/quickstart
 ///   Reference: https://docs.scopedb.io/reference/
 ///
-/// Run a script with `scopeql run <FILE>`, or pipe ScopeQL through stdin.
+/// Run a statement with `scopeql run <STATEMENT>`, a script with
+/// `scopeql run -f <FILE>`, or pipe ScopeQL through stdin.
 #[derive(Debug, clap::Parser)]
 #[command(
     name = "scopeql",
@@ -78,7 +79,7 @@ impl OutputFormat {
 
 #[derive(Debug, Clone, clap::Subcommand)]
 pub enum Subcommand {
-    /// Run ScopeQL statements from a script, stdin, or an explicit command.
+    /// Run ScopeQL statements from an argument, file, or stdin.
     #[clap(name = "run")]
     Run(RunArgs),
     /// Perform a load operation of source with transformations.
@@ -109,18 +110,19 @@ pub struct RunArgs {
     #[clap(flatten)]
     pub args: ExecArgs,
 
-    /// The ScopeQL script to run. Use '-' or omit FILE to read from stdin.
-    #[clap(value_name = "FILE", value_hint = ValueHint::FilePath, conflicts_with = "command")]
+    /// Run ScopeQL statements from a script file.
+    #[clap(
+        short,
+        long,
+        value_name = "FILE",
+        value_hint = ValueHint::FilePath,
+        group = "input"
+    )]
     pub file: Option<PathBuf>,
 
-    /// Run ScopeQL text supplied as an argument instead of reading a script.
-    #[clap(
-        short = 'c',
-        long = "command",
-        value_name = "STATEMENT",
-        conflicts_with = "file"
-    )]
-    pub command: Option<String>,
+    /// The ScopeQL statement text to run. Use ';' to separate statements.
+    #[clap(value_name = "STATEMENT", group = "input")]
+    pub statement: Option<String>,
 
     /// Output format for query results.
     #[clap(long, value_enum, default_value = "table")]
@@ -196,38 +198,32 @@ mod tests {
     use super::*;
 
     #[test]
-    fn run_accepts_a_positional_script_file() {
-        let command = Command::try_parse_from(["scopeql", "run", "queries.scopeql"]).unwrap();
-
-        let Subcommand::Run(args) = command.subcommand else {
-            panic!("expected run command");
-        };
-        assert_eq!(args.file, Some(PathBuf::from("queries.scopeql")));
-        assert_eq!(args.command, None);
-    }
-
-    #[test]
-    fn run_accepts_an_explicit_inline_command() {
-        let command =
-            Command::try_parse_from(["scopeql", "run", "--command", "SHOW DATABASES;"]).unwrap();
+    fn run_accepts_a_positional_statement() {
+        let command = Command::try_parse_from(["scopeql", "run", "SHOW DATABASES;"]).unwrap();
 
         let Subcommand::Run(args) = command.subcommand else {
             panic!("expected run command");
         };
         assert_eq!(args.file, None);
-        assert_eq!(args.command.as_deref(), Some("SHOW DATABASES;"));
+        assert_eq!(args.statement.as_deref(), Some("SHOW DATABASES;"));
     }
 
     #[test]
-    fn run_rejects_a_file_and_inline_command_together() {
-        let error = Command::try_parse_from([
-            "scopeql",
-            "run",
-            "queries.scopeql",
-            "--command",
-            "SHOW DATABASES;",
-        ])
-        .unwrap_err();
+    fn run_accepts_an_explicit_script_file() {
+        let command = Command::try_parse_from(["scopeql", "run", "-f", "queries.scopeql"]).unwrap();
+
+        let Subcommand::Run(args) = command.subcommand else {
+            panic!("expected run command");
+        };
+        assert_eq!(args.file, Some(PathBuf::from("queries.scopeql")));
+        assert_eq!(args.statement, None);
+    }
+
+    #[test]
+    fn run_rejects_a_file_and_inline_statement_together() {
+        let error =
+            Command::try_parse_from(["scopeql", "run", "-f", "queries.scopeql", "SHOW DATABASES;"])
+                .unwrap_err();
 
         assert_eq!(error.kind(), ErrorKind::ArgumentConflict);
     }

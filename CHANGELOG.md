@@ -9,12 +9,11 @@ All significant changes to this software be documented in this file.
 * Rename connection management from `scopeql config` to `scopeql connection` with subcommands `list`, `default`, `add`, and `remove`.
 * Stop falling back to an implicit local default connection when no config file or complete config environment exists.
 * Remove the interactive REPL and its slash commands. Running `scopeql` without a subcommand now displays help.
-* Make `scopeql run [FILE]` file-first: the positional input is now a script path and `-f/--file` is removed. Use `-c/--command` for inline text.
 
 ### New Features
 
 * Allow deleting the last configured connection.
-* Let `scopeql run` read a script from a positional file or stdin, including explicit `-` input.
+* Let `scopeql run` read redirected stdin when neither statement text nor `-f/--file` is provided.
 
 ### Bug Fixes
 
