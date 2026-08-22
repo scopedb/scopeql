@@ -13,8 +13,10 @@
 // limitations under the License.
 
 use std::fs::OpenOptions;
+use std::future::Future;
 use std::io::Write;
 use std::path::PathBuf;
+use std::time::Duration;
 
 use scopeql_parser::TokenKind;
 
@@ -24,6 +26,22 @@ use crate::config::Config;
 use crate::global;
 use crate::global::eprintln_and_error;
 use crate::tokenizer::tokenize;
+
+const CANCEL_TIMEOUT: Duration = Duration::from_secs(5);
+const INTERRUPTED_EXIT_CODE: i32 = 130;
+
+#[derive(Debug, PartialEq, Eq)]
+enum StatementExecution<T, C> {
+    Completed(T),
+    Interrupted(Cancellation<C>),
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum Cancellation<T> {
+    Completed(T),
+    TimedOut,
+    Interrupted,
+}
 
 pub fn execute(
     config: &Config,
@@ -89,14 +107,19 @@ pub fn execute(
         let id = uuid::Uuid::now_v7();
         log::info!("executing statement {id}");
 
-        match global::rt().block_on(client.execute_statement(
-            id,
-            stmt.to_string(),
-            format,
-            true,
-            |_, _| (),
-        )) {
-            Ok(output) => {
+        let execution = global::rt().block_on(execute_with_cancellation(
+            client.execute_statement(id, stmt.to_string(), format, true, |_, _| ()),
+            wait_for_ctrl_c(),
+            || async {
+                eprintln!("interrupt received; cancelling statement {id}...");
+                client.cancel_statement(id).await
+            },
+            wait_for_ctrl_c(),
+            CANCEL_TIMEOUT,
+        ));
+
+        match execution {
+            StatementExecution::Completed(Ok(output)) => {
                 log::info!("statement {id} completed successfully");
                 if let Some(ref mut output_file) = output_file {
                     output_file
@@ -110,11 +133,88 @@ pub fn execute(
                     println!("{output}");
                 }
             }
-            Err(err) => {
+            StatementExecution::Completed(Err(err)) => {
                 eprintln_and_error(format_args!("statement {id} failed: {err:?}"));
                 std::process::exit(1);
             }
+            StatementExecution::Interrupted(cancellation) => {
+                match cancellation {
+                    Cancellation::Completed(Ok(result)) => {
+                        eprintln!(
+                            "statement {id} cancellation result: {}: {}",
+                            result.status, result.message
+                        );
+                        log::info!(
+                            "statement {id} cancellation completed with status {}: {}",
+                            result.status,
+                            result.message
+                        );
+                    }
+                    Cancellation::Completed(Err(err)) => {
+                        eprintln!(
+                            "warning: failed to cancel statement {id}: {err:?}; it may still be running"
+                        );
+                        log::warn!("failed to cancel statement {id}: {err:?}");
+                    }
+                    Cancellation::TimedOut => {
+                        eprintln!(
+                            "warning: timed out after {} seconds while cancelling statement {id}; it may still be running",
+                            CANCEL_TIMEOUT.as_secs()
+                        );
+                        log::warn!("timed out while cancelling statement {id}");
+                    }
+                    Cancellation::Interrupted => {
+                        eprintln!(
+                            "warning: cancellation interrupted; statement {id} may still be running"
+                        );
+                        log::warn!("cancellation interrupted for statement {id}");
+                    }
+                }
+                std::process::exit(INTERRUPTED_EXIT_CODE);
+            }
         }
+    }
+}
+
+async fn execute_with_cancellation<T, C, F, CF>(
+    execution: impl Future<Output = T>,
+    interrupt: impl Future<Output = ()>,
+    cancel: F,
+    cancel_interrupt: impl Future<Output = ()>,
+    cancel_timeout: Duration,
+) -> StatementExecution<T, C>
+where
+    F: FnOnce() -> CF,
+    CF: Future<Output = C>,
+{
+    tokio::select! {
+        biased;
+        () = interrupt => StatementExecution::Interrupted(
+            wait_for_cancellation(cancel(), cancel_interrupt, cancel_timeout).await
+        ),
+        result = execution => StatementExecution::Completed(result),
+    }
+}
+
+async fn wait_for_cancellation<T>(
+    cancellation: impl Future<Output = T>,
+    interrupt: impl Future<Output = ()>,
+    timeout: Duration,
+) -> Cancellation<T> {
+    tokio::select! {
+        biased;
+        () = interrupt => Cancellation::Interrupted,
+        result = tokio::time::timeout(timeout, cancellation) => match result {
+            Ok(result) => Cancellation::Completed(result),
+            Err(_) => Cancellation::TimedOut,
+        },
+    }
+}
+
+async fn wait_for_ctrl_c() {
+    if let Err(err) = tokio::signal::ctrl_c().await {
+        log::error!("failed to listen for Ctrl+C: {err}");
+        std::future::pending::<()>().await;
     }
 }
 
@@ -161,6 +261,13 @@ fn top_level_statements(source: &str) -> exn::Result<Vec<&str>, crate::Error> {
 
 #[cfg(test)]
 mod tests {
+    use std::cell::Cell;
+    use std::future;
+    use std::time::Duration;
+
+    use super::Cancellation;
+    use super::StatementExecution;
+    use super::execute_with_cancellation;
     use super::supports_multi_statement_output;
     use super::top_level_statements;
     use crate::command::OutputFormat;
@@ -202,5 +309,75 @@ mod tests {
     fn multi_statement_output_policy_rejects_json_and_csv() {
         assert!(!supports_multi_statement_output(OutputFormat::Json, false));
         assert!(!supports_multi_statement_output(OutputFormat::Csv, false));
+    }
+
+    #[tokio::test]
+    async fn completed_execution_does_not_request_cancellation() {
+        let cancel_called = Cell::new(false);
+        let execution = execute_with_cancellation(
+            future::ready("finished"),
+            future::pending(),
+            || {
+                cancel_called.set(true);
+                future::ready("cancelled")
+            },
+            future::pending(),
+            Duration::ZERO,
+        )
+        .await;
+
+        assert_eq!(execution, StatementExecution::Completed("finished"));
+        assert!(!cancel_called.get());
+    }
+
+    #[tokio::test]
+    async fn interrupt_requests_cancellation() {
+        let execution = execute_with_cancellation(
+            future::pending::<()>(),
+            future::ready(()),
+            || future::ready("cancelled"),
+            future::pending(),
+            Duration::from_secs(1),
+        )
+        .await;
+
+        assert_eq!(
+            execution,
+            StatementExecution::Interrupted(Cancellation::Completed("cancelled"))
+        );
+    }
+
+    #[tokio::test]
+    async fn second_interrupt_stops_waiting_for_cancellation() {
+        let execution = execute_with_cancellation(
+            future::pending::<()>(),
+            future::ready(()),
+            future::pending::<()>,
+            future::ready(()),
+            Duration::from_secs(1),
+        )
+        .await;
+
+        assert_eq!(
+            execution,
+            StatementExecution::Interrupted(Cancellation::Interrupted)
+        );
+    }
+
+    #[tokio::test]
+    async fn cancellation_wait_is_bounded() {
+        let execution = execute_with_cancellation(
+            future::pending::<()>(),
+            future::ready(()),
+            future::pending::<()>,
+            future::pending(),
+            Duration::ZERO,
+        )
+        .await;
+
+        assert_eq!(
+            execution,
+            StatementExecution::Interrupted(Cancellation::TimedOut)
+        );
     }
 }

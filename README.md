@@ -10,7 +10,9 @@
 
 ## Overview
 
-`scopeql` provides a command line interface and interactive shell for ScopeDB.
+`scopeql` is a one-shot command-line client for ScopeDB. It reads ScopeQL from a
+command-line argument, script file, or stdin and submits each top-level statement
+independently.
 
 This repository documents the CLI, not the ScopeQL language. For ScopeQL syntax
 and examples, use the canonical language documentation:
@@ -32,7 +34,7 @@ Or you can download pre-built binaries from the [releases page](https://github.c
 Or you can run the CLI client with Docker:
 
 ```bash
-docker run -it --rm scopedb/scopeql
+docker run --rm scopedb/scopeql --help
 ```
 
 ## Connect to ScopeDB
@@ -49,8 +51,7 @@ scopeql connection add
 
 Choose **API Key**, then enter the ScopeDB API address and API key you obtained
 from Console. The first connection is named `default` unless you choose another
-name. Starting `scopeql` without a configured connection opens the same setup
-prompt before entering the REPL.
+name.
 
 Use `scopeql connection list` to view configured connections,
 `scopeql connection default <connection>` to choose the default connection, and
@@ -65,6 +66,44 @@ scopeql config get-connections
 scopeql config use-connection <connection>
 scopeql config delete-connection <connection>
 ```
+
+## Run ScopeQL
+
+Pass statement text directly to `scopeql run`. Use semicolons to separate
+multiple top-level statements:
+
+```bash
+scopeql run 'SHOW DATABASES;'
+```
+
+Use `-f/--file` to execute a script file:
+
+```bash
+scopeql run -f queries.scopeql
+```
+
+When neither statement text nor `-f/--file` is provided, `scopeql run` reads the
+entire script from redirected stdin. This supports files, pipelines, and
+multiline heredocs:
+
+```bash
+scopeql run < queries.scopeql
+
+scopeql run <<'SCOPEQL'
+SHOW DATABASES;
+SHOW SCHEMAS;
+SCOPEQL
+```
+
+Use `--format table|json|csv|jsonl` to select the result format,
+`-o/--output <FILE>` to write results to a file, and `-q/--quiet` to suppress
+normal output. Running `scopeql` without a subcommand displays command help.
+
+Pressing Ctrl+C while a statement is active asks ScopeDB to cancel that
+statement, waits up to five seconds for the cancellation request, and exits with
+status 130 without running any remaining statements. Cancellation is best
+effort; if it fails or times out, the CLI reports the statement ID because the
+statement may still be running.
 
 ## Configuration
 

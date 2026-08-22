@@ -8,18 +8,18 @@ All significant changes to this software be documented in this file.
 
 * Rename connection management from `scopeql config` to `scopeql connection` with subcommands `list`, `default`, `add`, and `remove`.
 * Stop falling back to an implicit local default connection when no config file or complete config environment exists.
+* Remove the interactive REPL and its slash commands. Running `scopeql` without a subcommand now displays help.
 
 ### New Features
 
-* Prompt for connection setup before entering the REPL when no config file or config environment variables exist.
 * Allow deleting the last configured connection.
-* List REPL connections when `/connect` is run without a connection name.
+* Let `scopeql run` read redirected stdin when neither statement text nor `-f/--file` is provided.
+* Best-effort cancel the active statement when `scopeql run` receives Ctrl+C.
 
 ### Bug Fixes
 
 * Allow the ScopeQL CLI to compile on stable Rust.
 * Reject duplicate connection names in `scopeql connection add`.
-* Show the REPL command list after an unknown REPL command.
 
 ## v0.6.0 (2026-06-03)
 
