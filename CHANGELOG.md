@@ -1,8 +1,11 @@
 # CHANGELOG
 
-All significant changes to this software be documented in this file.
+This project is no longer maintained. The final release is v0.6.0.
+For the current ScopeDB CLI, see [scopedb/scopedb-cli](https://github.com/scopedb/scopedb-cli).
 
 ## Unreleased
+
+The changes below were not released and are retained for historical reference.
 
 ### Breaking Changes
 

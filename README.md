@@ -1,95 +1,24 @@
 # ScopeQL: ScopeDB Command Line Interface
 
-[![Apache 2.0 licensed][license-badge]][license-url]
-[![Build Status][actions-badge]][actions-url]
+> [!WARNING]
+> This repository is no longer maintained and is kept as a historical snapshot.
+> For the current ScopeDB CLI (`scope`), see [scopedb/scopedb-cli](https://github.com/scopedb/scopedb-cli) for installation and usage.
 
-[license-badge]: https://img.shields.io/crates/l/scopeql
-[license-url]: LICENSE
-[actions-badge]: https://github.com/scopedb/scopeql/workflows/CI/badge.svg
-[actions-url]:https://github.com/scopedb/scopeql/actions?query=workflow%3ACI
+The `scopeql-parser` crate is also no longer maintained.
 
-## Overview
+## Historical releases
 
-`scopeql` provides a command line interface and interactive shell for ScopeDB.
+The final release of `scopeql` is [v0.6.0](https://github.com/scopedb/scopeql/releases/tag/v0.6.0).
+Its [README](https://github.com/scopedb/scopeql/blob/v0.6.0/README.md) and the
+[changelog](CHANGELOG.md) remain available for reference.
 
-This repository documents the CLI, not the ScopeQL language. For ScopeQL syntax
-and examples, use the canonical language documentation:
+## ScopeQL language
+
+For ScopeQL syntax and examples, use the canonical language documentation:
 
 - [ScopeDB documentation](https://docs.scopedb.io/)
 - [ScopeQL quickstart](https://docs.scopedb.io/guides/quickstart)
 - [ScopeQL reference](https://docs.scopedb.io/reference/)
-
-## Installation
-
-You can install `scopeql` with Cargo:
-
-```bash
-cargo install scopeql
-```
-
-Or you can download pre-built binaries from the [releases page](https://github.com/scopedb/scopeql/releases).
-
-Or you can run the CLI client with Docker:
-
-```bash
-docker run -it --rm scopedb/scopeql
-```
-
-## Connect to ScopeDB
-
-ScopeDB is a managed service. Open **Connect** in ScopeDB Console and copy the
-**ScopeDB API** address for your workspace. Then create an API key in **API
-Keys**, or use a key secret you previously stored.
-
-Create a connection interactively:
-
-```bash
-scopeql connection add
-```
-
-Choose **API Key**, then enter the ScopeDB API address and API key you obtained
-from Console. The first connection is named `default` unless you choose another
-name. Starting `scopeql` without a configured connection opens the same setup
-prompt before entering the REPL.
-
-Use `scopeql connection list` to view configured connections,
-`scopeql connection default <connection>` to choose the default connection, and
-`scopeql connection remove <connection>` to delete one.
-
-These `connection` commands describe builds from the current `main` branch. The
-published v0.6.0 release instead uses:
-
-```bash
-scopeql config set-connection <connection>
-scopeql config get-connections
-scopeql config use-connection <connection>
-scopeql config delete-connection <connection>
-```
-
-## Configuration
-
-`scopeql` stores connection settings in `config.toml`. An API Key connection sends
-the configured key as an `Authorization: Bearer <key>` header:
-
-```toml
-default_connection = "default"
-
-[connections.default]
-endpoint = "https://<workspace-endpoint>"
-auth = "api_key"
-api_key = "<api-key>"
-```
-
-You can also supply connection settings with environment variables such as
-`SCOPEQL_CONFIG_DEFAULT_CONNECTION`,
-`SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_ENDPOINT`,
-`SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_AUTH`, and
-`SCOPEQL_CONFIG_CONNECTIONS_<CONNECTION_NAME>_API_KEY`. Environment-only
-configuration must include enough fields to define the default connection.
-
-## Logs
-
-Logs are written to the `.scopeql/logs/` subdirectory of the platform's [cache directory](https://docs.rs/dirs/latest/dirs/fn.cache_dir.html) (falling back to `$HOME/.scopeql/logs/`). The default log level is `INFO`. To change the log level, set the [`RUST_LOG`](https://docs.rs/logforth/latest/logforth/filter/env_filter/index.html) environment variable, e.g., `RUST_LOG=debug` for more verbose output.
 
 ## License
 
